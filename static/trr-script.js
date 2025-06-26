@@ -48,6 +48,7 @@ const polygons = {};
 
 // Totals per county & utility
 const totals = {
+  coos:   { pacific: 0, cce: 0, clpud: 0 },
   douglas:   { pacific: 0, dec: 0, clpud: 0 },
   jackson:   { pacific: 0 },
   josephine: { pacific: 0 },
@@ -55,6 +56,13 @@ const totals = {
 };
 
 function updateTotalsDisplay() {
+  // Coos
+  document.getElementById('meters-pacific-coos').textContent = totals.coos.pacific.toLocaleString();
+  document.getElementById('meters-cce-coos').textContent     = totals.coos.cce.toLocaleString();
+  document.getElementById('meters-clpud-coos').textContent  = totals.coos.clpud.toLocaleString();
+  document.getElementById('meters-total-coos').textContent  =
+    (totals.coos.pacific + totals.coos.cce + totals.coos.clpud).toLocaleString();
+  
   // Douglas
   document.getElementById('meters-pacific-douglas').textContent = totals.douglas.pacific.toLocaleString();
   document.getElementById('meters-dec-douglas').textContent     = totals.douglas.dec.toLocaleString();
@@ -176,6 +184,38 @@ function fetchOutages() {
       updateTotalsDisplay();
     })
     .catch(console.error);
+
+  // Coos-Curry Electric
+  fetch('/cce-outages')
+    .then(r => r.json())
+    .then(list => {
+      list.forEach(o => {
+        if (!o.latitude || !o.longitude) return;
+        L.circleMarker([o.latitude, o.longitude], {
+          radius: 8, fillColor: '#e74c3c', color: '#000',
+          weight: 1, opacity: 1, fillOpacity: 0.85
+        })
+        .bindPopup(`
+          <strong>Case Number:</strong> ${o.id}<br/>
+          <strong>Impacted Meters:</strong> ${o.custOut}<br/>
+          <strong>Pole:</strong> ${o.poleNumber}<br/>
+          <strong>Element:</strong> ${o.elementName}<br/>
+          <strong>Status:</strong> ${o.status}<br/>
+          <strong>Cause:</strong> ${o.cause}<br/>
+          <strong>Outage Time:</strong> ${o.outageTime}<br/>
+          <strong>Restoration:</strong> ${o.restorationTime}<br/>
+          <strong>Utility:</strong> Coos-Curry Electric
+        `)
+        .addTo(map);
+
+        if (pointInCounty(o.latitude, o.longitude, 'coos')) {
+          totals.coos.cce += Number(o.custOut) || 0;
+        }
+      });
+      updateTotalsDisplay();
+    })
+    .catch(console.error);
+
 }
 
 // Fetch and draw all county polygons, then start outage polling

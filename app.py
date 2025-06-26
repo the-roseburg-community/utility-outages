@@ -1,5 +1,6 @@
 from flask import Flask, jsonify, render_template, send_from_directory
 from flask_cors import CORS
+import xml.etree.ElementTree as ET
 import requests
 import re
 import json
@@ -18,6 +19,8 @@ PACIFIC_POWER_URL = "https://www.pacificpower.net/etc/pcorp/datafiles/outagemap/
 DEC_SUMMARY_URL = "https://outagemap-data.cloud.coop/douglaselectric/Hosted_Outage_Map/summary.json"
 # ---- Central Lincoln ----
 CLPUD_SUMMARY_URL = "https://outagemap-data.cloud.coop/clpud/Hosted_Outage_Map/summary.json"
+# ---- Coos Curry Electric ----
+CCE_URL = "https://outagemap.cooscurryelectric.com/OMSWebMap/MobileMap/OMSMobileService.asmx/GetAllOutages"
 
 # --- Douglas Electric Calibration ---
 dec_x1, dec_y1 = 80642, 80827
@@ -36,7 +39,7 @@ def map_dec_xy_to_latlon(x, y):
     lon = dec_c * x + dec_d
     return lat, lon
 
-# --- CLPUD Calibration (your new points) ---
+# --- CLPUD Calibration ---
 clpud_x1, clpud_y1 = 21181, 43585
 clpud_lat1, clpud_lon1 = 43.47878393579475, -124.22129431060301
 
@@ -105,6 +108,32 @@ def get_clpud_outages():
                 "planned": "Planned" in str(o.get("lifeCycleStatus", "")),
                 "status": o.get("lifeCycleStatus", ""),
                 "source": "CLPUD"
+            })
+        return jsonify(outages)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/cce-outages")
+def get_cce_outages():
+    try:
+        r = requests.get(CCE_URL, timeout=10)
+        root = ET.fromstring(r.content)
+        ns = {"ns": "http://tempuri.org/"}
+        outages = []
+        for outage in root.find('ns:Outages', ns):
+            # XML keys: CaseNumber, CutomersAffected, X, Y, OutageTime, RestorationTime, PoleNumber, ElementName, CaseStatus, Cause
+            outages.append({
+                "id": outage.findtext('ns:CaseNumber', default='', namespaces=ns),
+                "latitude": float(outage.findtext('ns:Y', default='0', namespaces=ns)),
+                "longitude": float(outage.findtext('ns:X', default='0', namespaces=ns)),
+                "custOut": int(outage.findtext('ns:CutomersAffected', default='0', namespaces=ns)),
+                "poleNumber": outage.findtext('ns:PoleNumber', default='', namespaces=ns),
+                "elementName": outage.findtext('ns:ElementName', default='', namespaces=ns),
+                "cause": outage.findtext('ns:Cause', default='', namespaces=ns),
+                "status": outage.findtext('ns:CaseStatus', default='', namespaces=ns),
+                "outageTime": outage.findtext('ns:OutageTime', default='', namespaces=ns),
+                "restorationTime": outage.findtext('ns:RestorationTime', default='', namespaces=ns),
+                "source": "CCE"
             })
         return jsonify(outages)
     except Exception as e:

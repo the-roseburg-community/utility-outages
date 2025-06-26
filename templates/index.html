@@ -32,10 +32,11 @@
   <div class="legend" id="map-legend" aria-label="Map legend">
     <div class="legend-title">Legend</div>
     <div style="margin-bottom:5px;">
-      <span class="legend-icon legend-blue"></span> Pacific Power<br/>
-      <span class="legend-icon legend-orange"></span> Douglas Electric Cooperative<br/>
-      <span class="legend-icon legend-purple"></span> Central Lincoln PUD
-    </div>
+    <span class="legend-icon legend-blue"></span> Pacific Power<br/>
+    <span class="legend-icon legend-orange"></span> Douglas Electric Cooperative<br/>
+    <span class="legend-icon legend-purple"></span> Central Lincoln PUD<br/>
+    <span class="legend-icon legend-red" style="background:#e74c3c;"></span> Coos-Curry Electric Cooperative
+  </div>
 
     <div class="meters-caption">
       <strong>Select a County Below</strong><br/>
@@ -71,6 +72,37 @@
         </table>
       </div>
     </details>
+
+    <!-- Coos County -->
+    <details id="coos">
+      <summary class="county-summary">
+        <span class="legend-icon legend-red" style="background:#e74c3c;"></span>
+        Coos County
+      </summary>
+      <div class="county-section coos">
+        <table class="meters-table">
+          <tbody>
+            <tr class="utility-row">
+              <td>Pacific Power</td>
+              <td id="meters-pacific-coos" class="align-right">0</td>
+            </tr>
+            <tr class="utility-row">
+              <td>Coos-Curry Electric</td>
+              <td id="meters-cce-coos" class="align-right">0</td>
+            </tr>
+            <tr class="utility-row">
+              <td>Central Lincoln</td>
+              <td id="meters-clpud-coos" class="align-right">0</td>
+            </tr>
+            <tr class="table-total">
+              <td><b>Total</b></td>
+              <td id="meters-total-coos" class="align-right"><b>0</b></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </details>
+
 
     <!-- Jackson County -->
     <details id="jackson">
