@@ -1,0 +1,315 @@
+/* ------------------------------------------------------------------------
+   Base & Layout
+------------------------------------------------------------------------ */
+
+html, body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  font-family: system-ui, sans-serif;
+  background-color: #f4f4f4;
+}
+
+/* ------------------------------------------------------------------------
+   Header
+------------------------------------------------------------------------ */
+
+header {
+  background-color: #7ea253;
+  padding: 1rem;
+  box-sizing: border-box;
+  text-align: center;
+}
+
+header .logo {
+  display: block;
+  margin: 0 auto 0.5rem;
+  height: 40px;
+  width: auto;
+}
+
+header .header-text {
+  display: block;
+  color: white;
+  font-size: 1.5rem;
+  line-height: 1.2;
+}
+
+header .header-text a {
+  color: white;
+  text-decoration: none;
+  font-size: 1.6rem;
+  font-weight: bold;
+}
+
+/* ------------------------------------------------------------------------
+   Last updated - adding the basic header too? May not need last... shrug.
+------------------------------------------------------------------------ */
+
+#last-updated {
+  display: block;
+  background-color: #7ea253;
+  color: white;
+  padding: 0.25rem 0;
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+/* Dont need this anymore... but keeping it in case I want to add more text to the header */
+#refresh { 
+  display: block;
+  background-color: #7ea253;
+  color: white;
+  padding: 0.25rem 0;
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+/* ------------------------------------------------------------------------
+   Map
+------------------------------------------------------------------------ */
+
+#map {
+  flex: 1;
+  width: 100%;
+}
+
+/* ------------------------------------------------------------------------
+   Legend
+------------------------------------------------------------------------ */
+
+.legend {
+  line-height: 1.6;
+  background: white;
+  padding: 10px 14px;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.10);
+  font-size: 1rem;
+  color: #333;
+  position: absolute;
+  bottom: 24px;
+  right: 18px;
+  z-index: 500;
+  border: 1px solid #d3d3d3;
+  max-width: 410px;
+  min-width: 210px;
+  transition: opacity 0.15s;
+}
+
+.legend-title {
+  font-size: 1.08em;
+  font-weight: bold;
+  margin-bottom: 0.3em;
+  color: #5a5a5a;
+}
+
+.legend-icon {
+  display: inline-block;
+  border-radius: 50%;
+  width: 1em;
+  height: 1em;
+  margin-right: 7px;
+  border: 1.5px solid #222;
+  vertical-align: middle;
+}
+.legend-blue   { background: #007bff; }
+.legend-orange { background: #ffa500; }
+.legend-purple { background: #AA40FF; }
+
+/* ------------------------------------------------------------------------
+   Legend toggle
+------------------------------------------------------------------------ */
+
+.legend-toggle {
+  position: absolute;
+  bottom: 24px;
+  right: 18px;
+  z-index: 600;
+  background: white;
+  padding: 3px 10px 3px 7px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  font-size: 0.96em;
+  border: 1px solid #d3d3d3;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  user-select: none;
+  min-width: 115px;
+}
+.legend-toggle input[type=checkbox] {
+  accent-color: #7ea253;
+  margin: 0 6px 0 0;
+}
+
+/* ------------------------------------------------------------------------
+   Explanation caption
+------------------------------------------------------------------------ */
+
+.meters-caption {
+  font-size: 0.95em;
+  color: #486030;
+  background: #edf5e7;
+  padding: 6px 8px;
+  border-radius: 6px;
+  margin: 4px 0 9px;
+  border-left: 4px solid #7ea253;
+  line-height: 1.42;
+  text-align: center;
+}
+
+/* ------------------------------------------------------------------------
+   County sections
+------------------------------------------------------------------------ */
+
+.county-section {
+  margin: 12px 0 10px;
+  border-left: 6px solid #7ea253;
+  border-radius: 5px 0 0 5px;
+  background: #f6faef;
+  padding: 7px 7px 5px 13px;
+}
+.county-section.jackson   { border-left-color: #068D9D; background: #eaf9fa; }
+.county-section.josephine { border-left-color: #53599A; background: #f2f1fb; }
+
+.county-name {
+  font-weight: 700;
+  font-size: 1.04em;
+  letter-spacing: 0.02em;
+  margin: 2px 0 3px;
+  color: #444;
+}
+
+/* ------------------------------------------------------------------------
+   Tables (fixed layout)
+------------------------------------------------------------------------ */
+
+.meters-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 4px 0 0.4em;
+  font-size: 0.96em;
+  table-layout: fixed;    /* ← ensures vertical alignment */
+}
+
+.meters-table th,
+.meters-table td {
+  padding: 3px 7px;
+}
+
+.meters-table td:first-child {
+  width: 60%;             /* utility column */
+}
+
+.meters-table td:last-child {
+  width: 40%;             /* numbers column */
+  text-align: right;
+}
+
+.utility-row {
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.table-total {
+  font-weight: bold;
+  border-top: 2px solid #ddd;
+  background: #fff6f6;
+}
+
+.table-total .align-right {
+  color: #d12c2c;
+  font-size: 1.08em;
+}
+
+/* ------------------------------------------------------------------------
+   Footer
+------------------------------------------------------------------------ */
+
+.site-footer {
+  position: fixed;
+  left: 0;
+  bottom: 0;
+  width: 100vw;
+  background: #f9f9f9cc;
+  color: #7ea253;
+  font-size: 1rem;
+  text-align: center;
+  padding: 0.55em 0 0.7em;
+  z-index: 50;
+  box-shadow: 0 -2px 10px rgba(50,70,50,0.08);
+  letter-spacing: 0.01em;
+}
+.site-footer a {
+  color: #7ea253;
+  text-decoration: underline;
+  font-weight: 600;
+}
+.site-footer a:hover,
+.site-footer a:focus {
+  color: #557a35;
+}
+
+/* ------------------------------------------------------------------------
+   Responsive tweaks
+------------------------------------------------------------------------ */
+
+@media (max-width: 600px) {
+  header {
+    padding: 0.75rem 1rem;
+  }
+  header .logo {
+    height: 32px;
+    margin-bottom: 0.4rem;
+  }
+  header .header-text a {
+    font-size: 1.3rem;
+  }
+  .meters-caption {
+    font-size: 0.97em;
+    padding: 4px 5px;
+    margin-bottom: 7px;
+  }
+  .legend {
+    font-size: 0.97rem;
+    padding: 7px;
+    bottom: 10px;
+    right: 4px;
+    max-width: 97vw;
+  }
+  .legend-toggle {
+    padding: 2px 6px 2px 5px;
+    bottom: 10px;
+    right: 4px;
+    font-size: 0.93em;
+    min-width: 105px;
+  }
+  .county-section {
+    padding: 6px 3px 4px 9px;
+    margin-top: 10px;
+  }
+  .county-name {
+    font-size: 0.99em;
+  }
+  .meters-table th,
+  .meters-table td {
+    padding: 2px 3px;
+    font-size: 0.97em;
+  }
+  .site-footer {
+    font-size: 0.98rem;
+    padding: 0.39em 0 0.55em;
+  }
+}
+
+summary::-webkit-details-marker { display: none; }
+details summary { list-style: none; cursor: pointer; }
+details summary::before {
+  content: "▸"; display: inline-block; margin-right: 6px;
+  transform-origin: center; transition: transform 0.2s ease;
+}
+details[open] summary::before { transform: rotate(90deg); }

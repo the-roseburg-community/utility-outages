@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="refresh" content="300">
+  <title>Roseburg Receiver – Outage Map</title>
+  <link rel="canonical" href="https://outages.roseburgscanner.com">
+  <meta name="robots" content="index, follow">
+  <link rel="icon" href="/static/favicon.ico">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="/static/styles.css">
+
+</head>
+<body>
+  <header>
+    <a href="https://roseburgscanner.com" target="_blank" rel="noopener"><img src="/static/real-logo.png" alt="Roseburg Receiver Logo" class="logo"/></a>
+    <div class="header-text">
+      Utility Outage Map
+    </div>
+    <!-- <span id="last-updated"></span> -->
+  </header>
+
+  <div id="map"></div>
+
+  <div class="legend-toggle" id="legend-toggle">
+    <input type="checkbox" id="toggle-legend-box" checked>
+    <label for="toggle-legend-box">Show Legend</label>
+  </div>
+
+  <div class="legend" id="map-legend" aria-label="Map legend">
+    <div class="legend-title">Legend</div>
+    <div style="margin-bottom:5px;">
+      <span class="legend-icon legend-blue"></span> Pacific Power<br/>
+      <span class="legend-icon legend-orange"></span> Douglas Electric Cooperative<br/>
+      <span class="legend-icon legend-purple"></span> Central Lincoln PUD
+    </div>
+
+    <div class="meters-caption">
+      <strong>Select a County Below</strong><br/>
+      Click a county below to display the number of customers without power by utility.
+    </div>
+
+    <!-- Douglas County -->
+    <details id="douglas">
+      <summary class="county-summary">
+        <span class="legend-icon legend-blue" style="background:#7ea253;"></span>
+        Douglas County
+      </summary>
+      <div class="county-section">
+        <table class="meters-table">
+          <tbody>
+            <tr class="utility-row">
+              <td>Pacific Power</td>
+              <td id="meters-pacific-douglas" class="align-right">0</td>
+            </tr>
+            <tr class="utility-row">
+              <td>Douglas Electric</td>
+              <td id="meters-dec-douglas" class="align-right">0</td>
+            </tr>
+            <tr class="utility-row">
+              <td>Central Lincoln</td>
+              <td id="meters-clpud-douglas" class="align-right">0</td>
+            </tr>
+            <tr class="table-total">
+              <td><b>Total</b></td>
+              <td id="meters-total-douglas" class="align-right"><b>0</b></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </details>
+
+    <!-- Jackson County -->
+    <details id="jackson">
+      <summary class="county-summary">
+        <span class="legend-icon legend-teal" style="background:#068D9D;"></span>
+        Jackson County
+      </summary>
+      <div class="county-section jackson">
+        <table class="meters-table">
+          <tbody>
+            <tr class="utility-row">
+              <td>Pacific Power</td>
+              <td id="meters-pacific-jackson" class="align-right">0</td>
+            </tr>
+            <tr class="table-total">
+              <td><b>Total</b></td>
+              <td id="meters-total-jackson" class="align-right"><b>0</b></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </details>
+
+    <!-- Josephine County -->
+    <details id="josephine">
+      <summary class="county-summary">
+        <span class="legend-icon legend-purple"></span>
+        Josephine County
+      </summary>
+      <div class="county-section josephine">
+        <table class="meters-table">
+          <tbody>
+            <tr class="utility-row">
+              <td>Pacific Power</td>
+              <td id="meters-pacific-josephine" class="align-right">0</td>
+            </tr>
+            <tr class="table-total">
+              <td><b>Total</b></td>
+              <td id="meters-total-josephine" class="align-right"><b>0</b></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </details>
+
+    <!-- Klamath County -->
+    <details id="klamath">
+      <summary class="county-summary">
+        <span class="legend-icon legend-orange"></span>
+        Klamath County
+      </summary>
+      <div class="county-section" style="border-left-color:#E67E22; background:#FDEBD0;">
+        <table class="meters-table">
+          <tbody>
+            <tr class="utility-row">
+              <td>Pacific Power</td>
+              <td id="meters-pacific-klamath" class="align-right">0</td>
+            </tr>
+            <tr class="table-total">
+              <td><b>Total</b></td>
+              <td id="meters-total-klamath" class="align-right"><b>0</b></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </details>
+
+    <div class="legend-blurb">
+      This map shows the general location of an outage and the number of customers without power. The map will not show specific addresses that are without power for safety reasons.<br/>
+      We fetch fresh data every 30 seconds, and the page reloads itself every 5 minutes for your convenience.<br /><br />
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
+  <script src="/static/trr-script.js"></script>
+</body>
+</html>

@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Roseburg Receiver – Outage Map</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  />
+  <style>
+    body {
+      margin: 0;
+      font-family: system-ui, sans-serif;
+      background-color: #f4f4f4;
+    }
+
+    header {
+      background-color: #7ea253;
+      color: white;
+      padding: 1rem 1rem 0.5rem; /* extra bottom padding for the timestamp */
+      text-align: center;
+      font-size: 1.6rem;
+      font-weight: bold;
+      box-sizing: border-box;
+    }
+
+    /* move #last-updated into the header visually */
+    #last-updated {
+      display: block;
+      background-color: #7ea253;
+      color: white;
+      padding: 0.25rem 0;
+      margin: 0;
+      font-size: 0.9rem;
+    }
+
+    /* map takes remaining full height */
+    #map {
+      height: calc(100vh - (1rem + 0.5rem + 0.25rem)); /* header + timestamp padding */
+      width: 100%;
+    }
+
+    /* small-screen adjustments */
+    @media (max-width: 600px) {
+      header {
+        font-size: 1.3rem;
+        padding: 0.75rem 1rem 0.5rem;
+      }
+      #last-updated {
+        font-size: 0.8rem;
+      }
+      #map {
+        height: calc(100vh - (0.75rem + 0.5rem + 0.25rem));
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    The Roseburg Receiver – Utility Outage Map
+    <span id="last-updated"></span>
+  </header>
+  <div id="map"></div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    const map = L.map('map').setView([43.22, -123.34], 7);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution:
+        'Map data © <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors',
+    }).addTo(map);
+
+    // Pacific Power
+    fetch('http://localhost:5001/outages')
+      .then(res => res.json())
+      .then(data => {
+        const outageList = data[0]?.outages || [];
+        document.getElementById("last-updated").textContent =
+          "Last Updated: " + (data[0]?.last_upd || "Unknown");
+
+        outageList.forEach(o => {
+          if (o.latitude && o.longitude) {
+            L.circleMarker([o.latitude, o.longitude], {
+              radius: 8, fillColor: '#007bff', color: '#000',
+              weight: 1, opacity: 1, fillOpacity: 0.85
+            })
+              .bindPopup(`
+                <strong>ZIP:</strong> ${o.zip}<br/>
+                <strong>Impacted Meters:</strong> ${o.custOut}<br/>
+                <strong>Cause:</strong> ${o.cause}<br/>
+                <strong>Crew Status:</strong> ${o.crewStatus || 'Unknown'}<br/>
+                <strong>Est. Restore:</strong> ${o.etr}<br/>
+                <small>First Reported: ${o.reported}</small><br/>
+                <strong>Utility:</strong> Pacific Power
+              `)
+              .addTo(map);
+          }
+        });
+      })
+      .catch(err => {
+        console.error("Error loading Pacific Power data:", err);
+        document.getElementById("last-updated").textContent =
+          "Error loading Pacific Power data.";
+      });
+
+    // Douglas Electric Cooperative
+    fetch('http://localhost:5001/dec-outages')
+      .then(res => res.json())
+      .then(outages => {
+        outages.forEach(o => {
+          if (o.latitude && o.longitude) {
+            L.circleMarker([o.latitude, o.longitude], {
+              radius: 8, fillColor: '#ffa500', color: '#000',
+              weight: 1, opacity: 1, fillOpacity: 0.85
+            })
+              .bindPopup(`
+                <strong>Out:</strong> ${o.custOut}<br/>
+                <strong>Status:</strong> ${o.planned ? 'Planned' : 'Unplanned'}<br/>
+                <strong>ID:</strong> ${o.id}<br/>
+                <strong>Utility:</strong> Douglas Electric Cooperative
+              `)
+              .addTo(map);
+          }
+        });
+      })
+      .catch(err => {
+        console.error("Error loading DEC data:", err);
+      });
+  </script>
+</body>
+</html>
+

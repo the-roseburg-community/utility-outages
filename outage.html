@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Roseburg Receiver – Pacific Power Outage Map</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- Leaflet CSS -->
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  />
+  <style>
+    body {
+      margin: 0;
+      font-family: system-ui, sans-serif;
+      background-color: #f4f4f4;
+    }
+
+    header {
+      background-color: #7ea253;
+      color: white;
+      padding: 1rem;
+      text-align: center;
+      font-size: 1.6rem;
+      font-weight: bold;
+      letter-spacing: 0.5px;
+    }
+
+    #map {
+      height: 100vh;
+      width: 100%;
+    }
+  </style>
+</head>
+<body>
+
+  <header>The Roseburg Receiver – Outage Map (Pacific Power)</header>
+
+  <div id="map"></div>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    const map = L.map('map').setView([43.22, -123.34], 7); // Centered around Roseburg
+
+    // Open source tile layer (OpenStreetMap)
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution:
+        'Map data © <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors',
+    }).addTo(map);
+
+    // Sample outage data (mocked, can be loaded from JSON later)
+    const outages = [
+      {
+        latitude: 42.143,
+        longitude: -122.946,
+        zip: '97530',
+        custOut: 16,
+        cause: 'Planned Maintenance',
+        etr: 'Before 12:00 PM on 06/20',
+        reported: '07:30 AM on 06/20'
+      },
+      {
+        latitude: 45.791,
+        longitude: -119.965,
+        zip: '97801',
+        custOut: 181,
+        cause: 'Enhanced Safety Settings',
+        etr: 'Before 01:30 PM on 06/20',
+        reported: '10:01 AM on 06/20'
+      }
+    ];
+
+    // Plot markers
+    outages.forEach(entry => {
+      const marker = L.marker([entry.latitude, entry.longitude]).addTo(map);
+      marker.bindPopup(`
+        <strong>ZIP:</strong> ${entry.zip}<br/>
+        <strong>Customers Out:</strong> ${entry.custOut}<br/>
+        <strong>Cause:</strong> ${entry.cause}<br/>
+        <strong>ETR:</strong> ${entry.etr}<br/>
+        <small>Reported: ${entry.reported}</small>
+      `);
+    });
+  </script>
+
+</body>
+</html>
+
