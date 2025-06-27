@@ -29,7 +29,7 @@ legendToggle.addEventListener('click', e => {
 setLegendState(getInitialLegendState());
 
 // Create the map
-const map = L.map('map').setView([42.69367, -122.75029], 8);
+const map = L.map('map').setView([42.75, -122.90], 8);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   attribution: 'Map data © OpenStreetMap contributors'
 }).addTo(map);

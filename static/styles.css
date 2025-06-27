@@ -1,4 +1,44 @@
 /* ------------------------------------------------------------------------
+   Header tweaks (new)
+------------------------------------------------------------------------ */
+
+header {
+  background-color: #7ea253;
+  padding: 0.75rem 1rem;
+  text-align: center;
+}
+
+header .logo {
+  display: block;
+  margin: 0 auto 0.5rem;
+  height: 36px;
+  width: auto;
+}
+
+.header-text .site-title {
+  color: white;
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin-bottom: 0.2rem;
+}
+
+.header-text .site-subtitle {
+  color: #e0f4d9;
+  font-size: 1rem;
+  margin-bottom: 0.3rem;
+}
+
+.header-text .site-link a {
+  color: #cce8c1;
+  font-size: 0.85rem;
+  text-decoration: none;
+}
+
+.header-text .site-link a:hover {
+  text-decoration: underline;
+}
+
+/* ------------------------------------------------------------------------
    Base & Layout
 ------------------------------------------------------------------------ */
 
@@ -15,61 +55,6 @@ body {
 }
 
 /* ------------------------------------------------------------------------
-   Header
------------------------------------------------------------------------- */
-
-header {
-  background-color: #7ea253;
-  padding: 1rem;
-  box-sizing: border-box;
-  text-align: center;
-}
-
-header .logo {
-  display: block;
-  margin: 0 auto 0.5rem;
-  height: 40px;
-  width: auto;
-}
-
-header .header-text {
-  display: block;
-  color: white;
-  font-size: 1.5rem;
-  line-height: 1.2;
-}
-
-header .header-text a {
-  color: white;
-  text-decoration: none;
-  font-size: 1.6rem;
-  font-weight: bold;
-}
-
-/* ------------------------------------------------------------------------
-   Last updated - adding the basic header too? May not need last... shrug.
------------------------------------------------------------------------- */
-
-#last-updated {
-  display: block;
-  background-color: #7ea253;
-  color: white;
-  padding: 0.25rem 0;
-  margin: 0;
-  font-size: 0.9rem;
-}
-
-/* Dont need this anymore... but keeping it in case I want to add more text to the header */
-#refresh { 
-  display: block;
-  background-color: #7ea253;
-  color: white;
-  padding: 0.25rem 0;
-  margin: 0;
-  font-size: 0.9rem;
-}
-
-/* ------------------------------------------------------------------------
    Map
 ------------------------------------------------------------------------ */
 
@@ -79,73 +64,66 @@ header .header-text a {
 }
 
 /* ------------------------------------------------------------------------
-   Legend
+   Legend container
 ------------------------------------------------------------------------ */
 
 .legend {
-  line-height: 1.6;
-  background: white;
-  padding: 10px 14px;
-  border-radius: 10px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.10);
-  font-size: 1rem;
-  color: #333;
   position: absolute;
   bottom: 24px;
   right: 18px;
   z-index: 500;
+  background: white;
   border: 1px solid #d3d3d3;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.10);
+  padding: 10px 14px;
   max-width: 410px;
   min-width: 210px;
+  font-size: 1rem;
+  color: #333;
   transition: opacity 0.15s;
 }
 
 .legend-title {
   font-size: 1.08em;
   font-weight: bold;
-  margin-bottom: 0.3em;
   color: #5a5a5a;
+  margin-bottom: 0.3em;
 }
+
+/* ------------------------------------------------------------------------
+   Legend “mini–box” around icon list + separator
+------------------------------------------------------------------------ */
+
+.legend-box {
+  background: #fafafa;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  padding: 8px 12px;
+  margin-bottom: 8px;
+}
+
+.legend-box .legend-icon {
+  margin-right: 6px;
+}
+
+/* ------------------------------------------------------------------------
+   Legend icons
+------------------------------------------------------------------------ */
 
 .legend-icon {
   display: inline-block;
   border-radius: 50%;
   width: 1em;
   height: 1em;
-  margin-right: 7px;
   border: 1.5px solid #222;
   vertical-align: middle;
 }
+
 .legend-blue   { background: #007bff; }
 .legend-orange { background: #ffa500; }
 .legend-purple { background: #AA40FF; }
-
-/* ------------------------------------------------------------------------
-   Legend toggle
------------------------------------------------------------------------- */
-
-.legend-toggle {
-  position: absolute;
-  bottom: 24px;
-  right: 18px;
-  z-index: 600;
-  background: white;
-  padding: 3px 10px 3px 7px;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-  font-size: 0.96em;
-  border: 1px solid #d3d3d3;
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  cursor: pointer;
-  user-select: none;
-  min-width: 115px;
-}
-.legend-toggle input[type=checkbox] {
-  accent-color: #7ea253;
-  margin: 0 6px 0 0;
-}
+.legend-red    { background: #e74c3c; }
 
 /* ------------------------------------------------------------------------
    Explanation caption
@@ -174,8 +152,11 @@ header .header-text a {
   background: #f6faef;
   padding: 7px 7px 5px 13px;
 }
+
+/* overrides for Jackson/​Josephine/​Coos */
 .county-section.jackson   { border-left-color: #068D9D; background: #eaf9fa; }
 .county-section.josephine { border-left-color: #53599A; background: #f2f1fb; }
+.county-section.coos      { border-left-color: #e74c3c; background: #fdecea; }
 
 .county-name {
   font-weight: 700;
@@ -186,7 +167,7 @@ header .header-text a {
 }
 
 /* ------------------------------------------------------------------------
-   Tables (fixed layout)
+   Tables (fixed layout for vertical alignment)
 ------------------------------------------------------------------------ */
 
 .meters-table {
@@ -194,20 +175,19 @@ header .header-text a {
   border-collapse: collapse;
   margin: 4px 0 0.4em;
   font-size: 0.96em;
-  table-layout: fixed;    /* ← ensures vertical alignment */
+  table-layout: fixed;
 }
 
-.meters-table th,
 .meters-table td {
   padding: 3px 7px;
 }
 
 .meters-table td:first-child {
-  width: 60%;             /* utility column */
+  width: 60%;
 }
 
 .meters-table td:last-child {
-  width: 40%;             /* numbers column */
+  width: 40%;
   text-align: right;
 }
 
@@ -227,6 +207,34 @@ header .header-text a {
 }
 
 /* ------------------------------------------------------------------------
+   Legend toggle button
+------------------------------------------------------------------------ */
+
+.legend-toggle {
+  position: absolute;
+  bottom: 24px;
+  right: 18px;
+  z-index: 600;
+  background: white;
+  padding: 3px 10px 3px 7px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  font-size: 0.96em;
+  border: 1px solid #d3d3d3;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  user-select: none;
+  min-width: 115px;
+}
+
+.legend-toggle input[type=checkbox] {
+  accent-color: #7ea253;
+  margin: 0 6px 0 0;
+}
+
+/* ------------------------------------------------------------------------
    Footer
 ------------------------------------------------------------------------ */
 
@@ -241,17 +249,6 @@ header .header-text a {
   text-align: center;
   padding: 0.55em 0 0.7em;
   z-index: 50;
-  box-shadow: 0 -2px 10px rgba(50,70,50,0.08);
-  letter-spacing: 0.01em;
-}
-.site-footer a {
-  color: #7ea253;
-  text-decoration: underline;
-  font-weight: 600;
-}
-.site-footer a:hover,
-.site-footer a:focus {
-  color: #557a35;
 }
 
 /* ------------------------------------------------------------------------
@@ -259,21 +256,6 @@ header .header-text a {
 ------------------------------------------------------------------------ */
 
 @media (max-width: 600px) {
-  header {
-    padding: 0.75rem 1rem;
-  }
-  header .logo {
-    height: 32px;
-    margin-bottom: 0.4rem;
-  }
-  header .header-text a {
-    font-size: 1.3rem;
-  }
-  .meters-caption {
-    font-size: 0.97em;
-    padding: 4px 5px;
-    margin-bottom: 7px;
-  }
   .legend {
     font-size: 0.97rem;
     padding: 7px;
@@ -292,19 +274,16 @@ header .header-text a {
     padding: 6px 3px 4px 9px;
     margin-top: 10px;
   }
-  .county-name {
-    font-size: 0.99em;
-  }
-  .meters-table th,
-  .meters-table td {
-    padding: 2px 3px;
+  .meters-caption {
     font-size: 0.97em;
-  }
-  .site-footer {
-    font-size: 0.98rem;
-    padding: 0.39em 0 0.55em;
+    padding: 4px 5px;
+    margin-bottom: 7px;
   }
 }
+
+/* ------------------------------------------------------------------------
+   Details summary arrow
+------------------------------------------------------------------------ */
 
 summary::-webkit-details-marker { display: none; }
 details summary { list-style: none; cursor: pointer; }
@@ -313,3 +292,17 @@ details summary::before {
   transform-origin: center; transition: transform 0.2s ease;
 }
 details[open] summary::before { transform: rotate(90deg); }
+
+/* ------------------------------------------------------------------------
+   Map‐watermark CSS
+------------------------------------------------------------------------ */
+
+.county-watermark {
+  font-size: 3.5rem;
+  font-weight: 700;
+  color: rgba(0, 0, 0, 0.06);
+  white-space: nowrap;
+  pointer-events: none;
+  user-select: none;
+  transform: translate(-50%, -50%);
+}
