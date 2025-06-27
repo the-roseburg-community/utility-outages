@@ -118,7 +118,7 @@ function fetchOutages() {
             <strong>Crew Status:</strong> ${o.crewStatus || 'Unknown'}<br/>
             <strong>ETR:</strong> ${o.etr}<br/>
             <small>First Reported: ${o.reported}</small><br/>
-            <strong>Utility:</strong> Pacific Power
+            <strong>Utility:</strong> <a href="https://www.pacificpower.net/outages-safety.html">Pacific Power</a>
           `)
           .addTo(map);
 
@@ -147,7 +147,7 @@ function fetchOutages() {
             <strong>Impacted Meters:</strong> ${o.custOut}<br/>
             <strong>Status:</strong> ${o.planned ? 'Planned' : 'Unplanned'}<br/>
             <strong>ID:</strong> ${o.id}<br/>
-            <strong>Utility:</strong> Douglas Electric
+            <strong>Utility:</strong> <a href="https://douglaselectric.outagemap.coop/">Douglas Electric Cooperative</a>
           `)
           .addTo(map);
 
@@ -173,7 +173,7 @@ function fetchOutages() {
             <strong>Impacted Meters:</strong> ${o.custOut}<br/>
             <strong>Status:</strong> ${o.planned ? 'Planned' : 'Unplanned'}<br/>
             <strong>ID:</strong> ${o.id}<br/>
-            <strong>Utility:</strong> Central Lincoln PUD
+            <strong>Utility:</strong> <a href="https://clpud.org/customer-information/outages/outage-map/">Central Lincoln PUD</a>
           `)
           .addTo(map);
 
@@ -204,7 +204,7 @@ function fetchOutages() {
           <strong>Cause:</strong> ${o.cause}<br/>
           <strong>Outage Time:</strong> ${o.outageTime}<br/>
           <strong>Restoration:</strong> ${o.restorationTime}<br/>
-          <strong>Utility:</strong> Coos-Curry Electric
+          <strong>Utility:</strong> <a href="https://outagemap.cooscurryelectric.com/OMSWebMap/OMSWebMap.htm">Coos-Curry Electric Cooperative</a>
         `)
         .addTo(map);
 
