@@ -219,7 +219,7 @@ function fetchOutages() {
 }
 
 // Fetch and draw all county polygons, then start outage polling
-fetch('/static/dc.geojson')
+fetch('/static/filtered_counties.geojson')
   .then(r => r.json())
   .then(geojson => {
     countyStyles.forEach(cfg => {
