@@ -1,4 +1,4 @@
-// Legend toggle logic with localStorage
+// ---- Legend toggle logic with localStorage ----
 const legend       = document.getElementById('map-legend');
 const legendToggle = document.getElementById('legend-toggle');
 const toggleBox    = document.getElementById('toggle-legend-box');
@@ -6,17 +6,14 @@ const toggleBox    = document.getElementById('toggle-legend-box');
 function getInitialLegendState() {
   const stored = localStorage.getItem('legendVisible');
   if (stored !== null) return stored === '1';
-  // Hide on small screens by default
   return window.innerWidth > 500;
 }
-
 function setLegendState(show) {
   legend.style.display = show ? 'block' : 'none';
   toggleBox.checked = show;
   legendToggle.querySelector('label').textContent = show ? 'Hide Legend' : 'Show Legend';
   localStorage.setItem('legendVisible', show ? '1' : '0');
 }
-
 toggleBox.addEventListener('change', () => setLegendState(toggleBox.checked));
 legendToggle.addEventListener('click', e => {
   if (e.target.tagName !== 'INPUT') {
@@ -24,17 +21,103 @@ legendToggle.addEventListener('click', e => {
     setLegendState(toggleBox.checked);
   }
 });
-
-// Initialize legend visibility
 setLegendState(getInitialLegendState());
 
-// Create the map
+// ---- MAP SETUP ----
 const map = L.map('map').setView([42.75, -122.90], 8);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   attribution: 'Map data © OpenStreetMap contributors'
 }).addTo(map);
 
-// County style configurations
+// ---- LayerGroups for toggling ----
+const odotLayer = L.layerGroup();
+const cctvLayer = L.layerGroup();
+const dmsLayer  = L.layerGroup();
+
+// ---- SVG ICON HELPERS ----
+function svgIcon(svgString, size = [24,24]) {
+  return L.divIcon({
+    html: svgString,
+    className: "",
+    iconSize:   size,
+    iconAnchor: [size[0]/2, size[1]/2]
+  });
+}
+const incidentIcons = {
+  noDelay: svgIcon(`
+    <svg viewBox="0 0 64 64">
+      <rect x="12" y="12" width="40" height="40" fill="#fff" stroke="#444" stroke-width="4"/>
+    </svg>
+  `, [18,18]),
+  minorDelay: svgIcon(`
+    <svg viewBox="0 0 64 64">
+      <rect x="12" y="12" width="40" height="40" fill="#fff" stroke="#444" stroke-width="4"/>
+      <rect x="12" y="32" width="40" height="12" fill="#e74c3c"/>
+    </svg>
+  `, [18,18]),
+  majorDelay: svgIcon(`
+    <svg viewBox="0 0 64 64">
+      <rect x="12" y="12" width="40" height="40" fill="#e74c3c" stroke="#c0392b" stroke-width="4"/>
+    </svg>
+  `, [18,18]),
+  closed: svgIcon(`
+    <svg viewBox="0 0 64 64">
+      <rect x="12" y="12" width="40" height="40" fill="#e74c3c" stroke="#c0392b" stroke-width="4"/>
+      <line x1="18" y1="18" x2="46" y2="46" stroke="#fff" stroke-width="6"/>
+      <line x1="46" y1="18" x2="18" y2="46" stroke="#fff" stroke-width="6"/>
+    </svg>
+  `, [18,18]),
+  crash: svgIcon(`
+    <svg viewBox="0 0 64 64">
+      <rect x="16" y="32" width="32" height="14" rx="4" fill="#666"/>
+      <rect x="24" y="26" width="16" height="10" rx="2" fill="#bbb"/>
+      <circle cx="22" cy="50" r="4" fill="#222"/>
+      <circle cx="42" cy="50" r="4" fill="#222"/>
+      <polygon points="14,38 8,34 12,32 8,28 15,31 18,26 19,33 26,31 21,36 25,40 18,38 17,45"
+        fill="#ff5252" stroke="#a00" stroke-width="1"/>
+    </svg>
+  `, [32,32]),
+  cone: svgIcon(`
+    <svg viewBox="0 0 64 64">
+      <polygon points="32,8 16,56 48,56" fill="#f39c12" stroke="#e67e22" stroke-width="4"/>
+      <rect x="24" y="36" width="16" height="4" fill="#fff"/>
+      <rect x="28" y="44" width="8"  height="4" fill="#fff"/>
+    </svg>
+  `, [18,18]),
+  default: svgIcon(`
+    <svg viewBox="0 0 64 64">
+      <polygon points="32,4 4,60 60,60" fill="#f1c40f" stroke="#f39c12" stroke-width="4"/>
+      <rect x="30" y="20" width="4" height="18" fill="#fff"/>
+      <circle cx="32" cy="50" r="4" fill="#fff"/>
+    </svg>
+  `, [22,22])
+};
+function getIconForIncident(inc) {
+  const desc = inc['impact-desc'] || '';
+  const hl   = (inc.headline || '').toLowerCase();
+  if (hl.includes('closed'))                                return incidentIcons.closed;
+  if (hl.includes('crash'))                                 return incidentIcons.crash;
+  if (inc['event-type-id'].includes("RW")) return incidentIcons.cone;
+  if (hl.includes('disabled') || hl.includes('obstruction')) return incidentIcons.default;
+  if (desc.includes('No to Minimum Delay') || desc.includes('Informational Only')) return incidentIcons.noDelay;
+  if (desc.includes('Estimated delay under 20 minutes'))    return incidentIcons.minorDelay;
+  if (/hours/i.test(desc) || desc.toLowerCase().includes('closure with detour')) return incidentIcons.majorDelay;
+  return incidentIcons.default;
+}
+function dmsIcon(isOn) {
+  return L.divIcon({
+    html: `<svg width="38" height="22" viewBox="0 0 38 22">
+      <rect x="2" y="2" width="34" height="18" rx="4" fill="${isOn ? '#FFD600' : '#222'}" stroke="#333" stroke-width="3"/>
+      <rect x="6" y="7" width="26" height="8" rx="2" fill="#111" />
+      <rect x="14" y="16" width="10" height="2" rx="1" fill="#555"/>
+    </svg>`,
+    iconSize: [38, 22],
+    iconAnchor: [19, 11],
+    className: ""
+  });
+}
+
+// ---- COUNTY STYLES ----
 const countyStyles = [
   { name: 'douglas',   color: '#7ea253', fill: '#a9c995' },
   { name: 'jackson',   color: '#068D9D', fill: '#7ed6df' },
@@ -42,19 +125,14 @@ const countyStyles = [
   { name: 'klamath',   color: '#E67E22', fill: '#FDEBD0' },
   { name: 'coos',      color: '#e74c3c', fill: '#fdecec' }
 ];
-
-// Storage for turf polygons
 const polygons = {};
-
-// Totals per county & utility
 const totals = {
-  coos:   { pacific: 0, cce: 0, clpud: 0 },
+  coos:      { pacific: 0, cce: 0, clpud: 0 },
   douglas:   { pacific: 0, dec: 0, clpud: 0 },
   jackson:   { pacific: 0 },
   josephine: { pacific: 0 },
   klamath:   { pacific: 0 }
 };
-
 function updateTotalsDisplay() {
   // Coos
   document.getElementById('meters-pacific-coos').textContent = totals.coos.pacific.toLocaleString();
@@ -62,12 +140,12 @@ function updateTotalsDisplay() {
   document.getElementById('meters-clpud-coos').textContent  = totals.coos.clpud.toLocaleString();
   document.getElementById('meters-total-coos').textContent  =
     (totals.coos.pacific + totals.coos.cce + totals.coos.clpud).toLocaleString();
-  
-  // Douglas
+
+ // Douglas
   document.getElementById('meters-pacific-douglas').textContent = totals.douglas.pacific.toLocaleString();
   document.getElementById('meters-dec-douglas').textContent     = totals.douglas.dec.toLocaleString();
-  document.getElementById('meters-clpud-douglas').textContent  = totals.douglas.clpud.toLocaleString();
-  document.getElementById('meters-total-douglas').textContent  =
+  document.getElementById('meters-clpud-douglas').textContent   = totals.douglas.clpud.toLocaleString();
+  document.getElementById('meters-total-douglas').textContent   =
     (totals.douglas.pacific + totals.douglas.dec + totals.douglas.clpud).toLocaleString();
 
   // Jackson
@@ -82,50 +160,36 @@ function updateTotalsDisplay() {
   document.getElementById('meters-pacific-klamath').textContent = totals.klamath.pacific.toLocaleString();
   document.getElementById('meters-total-klamath').textContent   = totals.klamath.pacific.toLocaleString();
 }
-
 function pointInCounty(lat, lon, county) {
   const poly = polygons[county];
-  if (!poly) return false;
-  return turf.booleanPointInPolygon(turf.point([lon, lat]), poly);
+  return poly ? turf.booleanPointInPolygon(turf.point([lon, lat]), poly) : false;
 }
 
+// ---- OUTAGE DATA ----
 function fetchOutages() {
-  // reset totals
-  Object.keys(totals).forEach(county => {
-    Object.keys(totals[county]).forEach(util => totals[county][util] = 0);
-  });
+  Object.keys(totals).forEach(cty => Object.keys(totals[cty]).forEach(u => totals[cty][u] = 0));
 
   // Pacific Power
   fetch('/outages')
     .then(r => r.json())
     .then(data => {
-      const list = data[0]?.outages || [];
-      // I dont think this is needed since this is only for Pacific power... so it doesn't make sense..
-      // document.getElementById('last-updated').textContent =
-      //   'Last Updated: ' + (data[0]?.last_upd || 'Unknown');
-
-      list.forEach(o => {
+      (data[0]?.outages || []).forEach(o => {
         if (!o.latitude || !o.longitude) return;
-        // draw marker
         L.circleMarker([o.latitude, o.longitude], {
-          radius: 8, fillColor: '#007bff', color: '#000',
-          weight: 1, opacity: 1, fillOpacity: 0.85
-        })
-          .bindPopup(`
-            <strong>ZIP:</strong> ${o.zip}<br/>
-            <strong>Impacted Meters:</strong> ${o.custOut}<br/>
-            <strong>Cause:</strong> ${o.cause}<br/>
-            <strong>Crew Status:</strong> ${o.crewStatus || 'Unknown'}<br/>
-            <strong>ETR:</strong> ${o.etr}<br/>
-            <small>First Reported: ${o.reported}</small><br/>
-            <strong>Utility:</strong> <a href="https://www.pacificpower.net/outages-safety.html">Pacific Power</a>
-          `)
-          .addTo(map);
+          radius: 8, fillColor: '#007bff', color: '#000', weight: 1, opacity: 1, fillOpacity: 0.85
+        }).bindPopup(`
+          <strong>ZIP:</strong> ${o.zip}<br/>
+          <strong>Impacted Meters:</strong> ${o.custOut}<br/>
+          <strong>Cause:</strong> ${o.cause}<br/>
+          <strong>Crew Status:</strong> ${o.crewStatus || 'Unknown'}<br/>
+          <strong>ETR:</strong> ${o.etr}<br/>
+          <small>First Reported: ${o.reported}</small><br/>
+          <strong>Utility:</strong> <a href="https://www.pacificpower.net/outages-safety.html">Pacific Power</a>
+        `).addTo(map);
 
-        // tally by county
-        ['douglas','jackson','josephine','klamath','coos'].forEach(county => {
-          if (pointInCounty(o.latitude, o.longitude, county)) {
-            totals[county].pacific += Number(o.custOut) || 0;
+        ['douglas','jackson','josephine','klamath','coos'].forEach(cty => {
+          if (pointInCounty(o.latitude, o.longitude, cty)) {
+            totals[cty].pacific += Number(o.custOut) || 0;
           }
         });
       });
@@ -140,17 +204,13 @@ function fetchOutages() {
       list.forEach(o => {
         if (!o.latitude || !o.longitude) return;
         L.circleMarker([o.latitude, o.longitude], {
-          radius: 8, fillColor: '#ffa500', color: '#000',
-          weight: 1, opacity: 1, fillOpacity: 0.85
-        })
-          .bindPopup(`
-            <strong>Impacted Meters:</strong> ${o.custOut}<br/>
-            <strong>Status:</strong> ${o.planned ? 'Planned' : 'Unplanned'}<br/>
-            <strong>ID:</strong> ${o.id}<br/>
-            <strong>Utility:</strong> <a href="https://douglaselectric.outagemap.coop/">Douglas Electric Cooperative</a>
-          `)
-          .addTo(map);
-
+          radius: 8, fillColor: '#ffa500', color: '#000', weight: 1, opacity: 1, fillOpacity: 0.85
+        }).bindPopup(`
+          <strong>Impacted Meters:</strong> ${o.custOut}<br/>
+          <strong>Status:</strong> ${o.planned ? 'Planned' : 'Unplanned'}<br/>
+          <strong>ID:</strong> ${o.id}<br/>
+          <strong>Utility:</strong> <a href="https://douglaselectric.outagemap.coop/">Douglas Electric</a>
+        `).addTo(map);
         if (pointInCounty(o.latitude, o.longitude, 'douglas')) {
           totals.douglas.dec += Number(o.custOut) || 0;
         }
@@ -166,17 +226,13 @@ function fetchOutages() {
       list.forEach(o => {
         if (!o.latitude || !o.longitude) return;
         L.circleMarker([o.latitude, o.longitude], {
-          radius: 8, fillColor: '#AA40FF', color: '#000',
-          weight: 1, opacity: 1, fillOpacity: 0.85
-        })
-          .bindPopup(`
-            <strong>Impacted Meters:</strong> ${o.custOut}<br/>
-            <strong>Status:</strong> ${o.planned ? 'Planned' : 'Unplanned'}<br/>
-            <strong>ID:</strong> ${o.id}<br/>
-            <strong>Utility:</strong> <a href="https://clpud.org/customer-information/outages/outage-map/">Central Lincoln PUD</a>
-          `)
-          .addTo(map);
-
+          radius: 8, fillColor: '#AA40FF', color: '#000', weight: 1, opacity: 1, fillOpacity: 0.85
+        }).bindPopup(`
+          <strong>Impacted Meters:</strong> ${o.custOut}<br/>
+          <strong>Status:</strong> ${o.planned ? 'Planned' : 'Unplanned'}<br/>
+          <strong>ID:</strong> ${o.id}<br/>
+          <strong>Utility:</strong> <a href="https://clpud.org/customer-information/outages/outage-map/">Central Lincoln PUD</a>
+        `).addTo(map);
         if (pointInCounty(o.latitude, o.longitude, 'douglas')) {
           totals.douglas.clpud += Number(o.custOut) || 0;
         }
@@ -192,22 +248,12 @@ function fetchOutages() {
       list.forEach(o => {
         if (!o.latitude || !o.longitude) return;
         L.circleMarker([o.latitude, o.longitude], {
-          radius: 8, fillColor: '#e74c3c', color: '#000',
-          weight: 1, opacity: 1, fillOpacity: 0.85
-        })
-        .bindPopup(`
+          radius: 8, fillColor: '#e74c3c', color: '#000', weight: 1, opacity: 1, fillOpacity: 0.85
+        }).bindPopup(`
           <strong>Case Number:</strong> ${o.id}<br/>
           <strong>Impacted Meters:</strong> ${o.custOut}<br/>
-          <strong>Pole:</strong> ${o.poleNumber}<br/>
-          <strong>Element:</strong> ${o.elementName}<br/>
-          <strong>Status:</strong> ${o.status}<br/>
-          <strong>Cause:</strong> ${o.cause}<br/>
-          <strong>Outage Time:</strong> ${o.outageTime}<br/>
-          <strong>Restoration:</strong> ${o.restorationTime}<br/>
-          <strong>Utility:</strong> <a href="https://outagemap.cooscurryelectric.com/OMSWebMap/OMSWebMap.htm">Coos-Curry Electric Cooperative</a>
-        `)
-        .addTo(map);
-
+          <strong>Utility:</strong> <a href="https://outagemap.cooscurryelectric.com/">Coos-Curry Electric</a>
+        `).addTo(map);
         if (pointInCounty(o.latitude, o.longitude, 'coos')) {
           totals.coos.cce += Number(o.custOut) || 0;
         }
@@ -215,44 +261,278 @@ function fetchOutages() {
       updateTotalsDisplay();
     })
     .catch(console.error);
-
 }
 
-// Fetch and draw all county polygons, then start outage polling
+// ---- ODOT INCIDENTS ----
+function formatLaneInfo(inc) {
+  const tl       = inc['travel-lanes'] || {};
+  const decDir   = tl['decreasing-direction']  || 'N/A';
+  const decCount = tl['decreasing-lane-count'] ?? 0;
+  const incDir   = tl['increasing-direction']  || 'N/A';
+  const incCount = tl['increasing-lane-count'] ?? 0;
+
+  let summary = `${decDir}: ${decCount} lane${decCount !== 1 ? 's' : ''}, `
+              + `${incDir}: ${incCount} lane${incCount !== 1 ? 's' : ''}`;
+
+  const affected = tl['affected-lanes'] || [];
+  if (affected.length) {
+    const list = affected.map(a =>
+      `${a['lane-id']} (${a['lane-type']}, ${a.direction})`
+    ).join('; ');
+    summary += `<br/><strong>Specific lanes:</strong> ${list}`;
+  }
+  return summary;
+}
+function fetchOdotIncidents() {
+  fetch('/odot-incidents')
+    .then(r => r.json())
+    .then(data => {
+      const openPopup = map._popup;
+      const openId    = openPopup
+        ? openPopup._source.options.incidentId
+        : null;
+
+      odotLayer.clearLayers();
+
+      (data.incidents || []).forEach(inc => {
+        if (inc['is-active'] !== 'true') return;
+        const loc = inc.location['start-location'];
+        if (!loc?.['start-lat'] || !loc?.['start-long']) return;
+        const lat = loc['start-lat'];
+        const lon = loc['start-long'];
+
+        const marker = L.marker([lat, lon], {
+          icon: getIconForIncident(inc),
+          incidentId: inc['incident-id']
+        });
+
+        const startMP  = loc['start-milepost'] ?? 'N/A';
+        const endMP    = inc.location['end-location']?.['end-milepost'];
+        const mpRange  = endMP ? `${startMP} – ${endMP}` : startMP;
+        const laneHtml = formatLaneInfo(inc);
+        const popup   = `
+          <strong>${inc.headline}</strong><br/>
+          <em>${inc['impact-desc']}</em><br/><br/>
+          <strong>Location:</strong> ${loc['location-desc']}<br/>
+          <strong>Milepost:</strong> ${mpRange}<br/>
+          <strong>Lane Summary:</strong><br/>${laneHtml}<br/><br/>
+          <strong>Comments:</strong> ${inc.comments || 'None'}<br/>
+          <strong>Created:</strong> ${new Date(inc['create-time']).toLocaleString()}<br/>
+          <strong>Updated:</strong> ${new Date(inc['update-time']).toLocaleString()}
+        `;
+
+        marker.bindPopup(popup);
+        odotLayer.addLayer(marker);
+
+        if (inc['incident-id'] === openId) {
+          marker.openPopup();
+        }
+      });
+    })
+    .catch(console.error);
+}
+
+// ---- ODOT CAMERAS ----
+function fetchCameras() {
+  cctvLayer.clearLayers();
+
+  fetch('/odot-cctv')
+    .then(r => r.json())
+    .then(data => {
+      (data.CCTVInventoryRequest || []).forEach(cam => {
+        const cameraIcon = L.divIcon({
+          html: `<svg viewBox="0 0 32 32" width="38" height="38">
+            <rect x="7" y="10" width="18" height="10" rx="3" fill="#fff" stroke="#333" stroke-width="2"/>
+            <circle cx="16" cy="15" r="3" fill="#7ea253" stroke="#555" stroke-width="1"/>
+            <rect x="13" y="22" width="6" height="2" rx="1" fill="#333"/>
+            <rect x="14" y="24" width="4" height="2" rx="1" fill="#555"/>
+          </svg>`,
+          className: "",
+          iconSize: [38, 38],
+          iconAnchor: [19, 19] // center of icon
+        });
+
+        const marker = L.marker([cam.latitude, cam.longitude], { icon: cameraIcon });
+        marker.bindPopup(`
+          <div style="max-width:340px;">
+            <strong>${cam['device-name']}</strong><br/>
+            <img src="${cam['cctv-url']}"
+                alt="Camera image"
+                style="width:320px; height:auto; border:2px solid #7ea253; display:block; margin:6px auto;" />
+            <em>${cam['cctv-other'] || ''}</em><br/>
+            <small>Last update: ${cam['last-update-time'] ? new Date(cam['last-update-time']).toLocaleString() : 'n/a'}</small>
+          </div>
+        `, { maxWidth: 340 });
+        cctvLayer.addLayer(marker);
+      });
+    })
+    .catch(console.error);
+}
+
+// ---- DMS SIGNS (Dynamic Message Signs) ----
+
+// -- Readerboard effect CSS --
+if (!document.getElementById('dms-board-css')) {
+  const style = document.createElement('style');
+  style.id = 'dms-board-css';
+  style.textContent = `
+    .dms-board { display:inline-block; background:#111; border-radius:5px; padding:8px 12px; margin:6px 0; font-size:20px; }
+    .dms-row { white-space:pre; font-family:'Roboto Mono','Consolas','Courier New',monospace; letter-spacing:2px; color:#FFD600; font-weight:bold;
+      text-shadow:0 0 2px #FFD600, 0 0 6px #222; display:block; line-height:1.3; }
+  `;
+  document.head.appendChild(style);
+}
+function formatDmsReaderBoard(st) {
+  if (!st || !st.dmsCurrentMessage) return "";
+  const lines = [
+    st.dmsCurrentMessage.phase1Line1,
+    st.dmsCurrentMessage.phase1Line2,
+    st.dmsCurrentMessage.phase1Line3,
+    st.dmsCurrentMessage.phase2Line1,
+    st.dmsCurrentMessage.phase2Line2,
+    st.dmsCurrentMessage.phase2Line3
+  ].filter(Boolean);
+
+  if (!lines.length) return "";
+
+  return `
+    <div class="dms-board">
+      ${lines.map(line =>
+        `<span class="dms-row">${line.replace(/ /g, '\u00A0')}</span>`
+      ).join('')}
+    </div>
+  `;
+}
+function fetchDmsLayer() {
+  // Remember which DMS marker popup is open (by device-id and lat/lon)
+  let openPopup = map._popup;
+  let openDmsId = null;
+  let openLatLng = null;
+  if (openPopup && openPopup._source && openPopup._source.options && openPopup._source.options.dmsId) {
+    openDmsId = openPopup._source.options.dmsId;
+    openLatLng = openPopup._source.getLatLng();
+  }
+
+  Promise.all([
+    fetch('/odot-dms-inventory').then(r => r.json()),
+    fetch('/odot-dms-status').then(r => r.json())
+  ]).then(([inventory, status]) => {
+    dmsLayer.clearLayers();
+    if (!inventory["dms-inventory-items"] || !status["dmsItems"]) return;
+    const statusMap = {};
+    status["dmsItems"].forEach(d => statusMap[d["device-id"]] = d);
+
+    inventory["dms-inventory-items"].forEach(sign => {
+      const sid = sign["device-id"];
+      const st = statusMap[sid];
+      let isOn = false;
+      if (st && st["dms-device-status"] === "in service") {
+        const lines = [
+          st.dmsCurrentMessage?.phase1Line1,
+          st.dmsCurrentMessage?.phase1Line2,
+          st.dmsCurrentMessage?.phase1Line3,
+          st.dmsCurrentMessage?.phase2Line1,
+          st.dmsCurrentMessage?.phase2Line2,
+          st.dmsCurrentMessage?.phase2Line3,
+        ].filter(Boolean);
+        isOn = lines.some(l => l && l.trim().length > 0);
+      }
+      let popup = `
+        <strong>${sign["device-name"] || "DMS Sign"}</strong><br/>
+        <b>Route:</b> ${sign["route-id"] || ""} @ MP ${sign["milepoint"] || ""}<br/>
+        <b>Elevation:</b> ${sign["elevation"]} ft<br/>
+        <b>Status:</b> ${st ? st["dms-device-status"] : "Unknown"}<br/>
+      `;
+      if (isOn) {
+        popup += `<div style="margin-top:4px;"><b>Message:</b><br/>${formatDmsReaderBoard(st)}</div>`;
+      } else {
+        popup += `<div style="margin-top:4px;color:#888;">No message displayed</div>`;
+      }
+      // The magic: attach dmsId to options
+      const marker = L.marker([sign.latitude, sign.longitude], {
+        icon: dmsIcon(isOn),
+        dmsId: sid  // custom property for matching
+      }).bindPopup(popup, {maxWidth: 340});
+      dmsLayer.addLayer(marker);
+
+      // After adding the marker, re-open popup if it matches the last open marker
+      if (openDmsId && sid === openDmsId && openLatLng &&
+          Math.abs(sign.latitude - openLatLng.lat) < 0.0001 &&
+          Math.abs(sign.longitude - openLatLng.lng) < 0.0001) {
+        marker.openPopup();
+      }
+    });
+  }).catch(console.error);
+}
+
+// ---- DRAW LINE UTILITY (if needed) ----
+function drawLine(wkt) {
+  const geojson = wellknown.parse(wkt);
+  L.geoJSON(geojson, {
+    style: { color: '#e74c3c', weight: 4, opacity: 0.7 }
+  }).addTo(odotLayer);
+}
+
+// ---- LOAD COUNTY POLYGONS, SETUP LAYERS, INIT DATA LOOPS ----
 fetch('/static/filtered_counties.geojson')
   .then(r => r.json())
   .then(geojson => {
     countyStyles.forEach(cfg => {
       const feat = geojson.features.find(f =>
-        (f.properties.COUNTY_NAM||f.properties.COUNTY_NAME||'').toLowerCase() === cfg.name
+        (f.properties.COUNTY_NAME||'').toLowerCase() === cfg.name
       );
-      if (feat) {
-        polygons[cfg.name] = feat;
-        L.geoJSON(feat, {
-          style: {
-            color: cfg.color,
-            weight: 4,
-            fillColor: cfg.fill,
-            fillOpacity: 0.3
-          }
-        }).addTo(map);
-      }
+      if (!feat) return;
+      polygons[cfg.name] = feat;
+      L.geoJSON(feat, {
+        style: { color: cfg.color, weight: 4, fillColor: cfg.fill, fillOpacity: 0.3 }
+      }).addTo(map);
     });
-    // all polygons in place → fetch outages
+
+    // Layer controls & state
+    const odotSaved = localStorage.getItem('odotVisible');
+    if (odotSaved === '1' || odotSaved === null) {
+      odotLayer.addTo(map);
+      localStorage.setItem('odotVisible','1');
+    }
+    const cctvVisible = localStorage.getItem('cctvVisible');
+    if (cctvVisible === null || cctvVisible === '1') {
+      cctvLayer.addTo(map);
+    }
+    const dmsVisible = localStorage.getItem('dmsVisible');
+    if (dmsVisible === null || dmsVisible === '1') {
+      dmsLayer.addTo(map);
+    }
+
+    L.control.layers(null, {
+      "ODOT Traffic Incidents": odotLayer,
+      "ODOT Cameras": cctvLayer,
+      "ODOT Message Signs": dmsLayer
+    }, { collapsed: false }).addTo(map);
+
+    map.on('overlayadd',   e => { if (e.layer === odotLayer) localStorage.setItem('odotVisible','1'); });
+    map.on('overlayremove',e => { if (e.layer === odotLayer) localStorage.setItem('odotVisible','0'); });
+    map.on('overlayadd',   e => { if (e.layer === cctvLayer) localStorage.setItem('cctvVisible', '1'); });
+    map.on('overlayremove',e => { if (e.layer === cctvLayer) localStorage.setItem('cctvVisible', '0'); });
+    map.on('overlayadd',   e => { if (e.layer === dmsLayer) localStorage.setItem('dmsVisible', '1'); });
+    map.on('overlayremove',e => { if (e.layer === dmsLayer) localStorage.setItem('dmsVisible', '0'); });
+
     fetchOutages();
+    fetchOdotIncidents();
+    fetchCameras();
+    fetchDmsLayer();
+
+    setInterval(fetchOutages, 30000);
+    setInterval(fetchOdotIncidents, 60000);
+    setInterval(fetchCameras, 5 * 60 * 1000);
+    setInterval(fetchDmsLayer, 30000);
   })
   .catch(console.error);
 
+// ---- Persist <details> state (county accordions) ----
 document.addEventListener("DOMContentLoaded", () => {
   document.querySelectorAll('details[id]').forEach(det => {
     const key = 'legend_' + det.id;
-    // Restore state
-    if (localStorage.getItem(key) === 'true') {
-      det.open = true;
-    }
-    // Listen for toggles and save
-    det.addEventListener('toggle', () => {
-      localStorage.setItem(key, det.open);
-    });
+    if (localStorage.getItem(key) === 'true') det.open = true;
+    det.addEventListener('toggle', () => localStorage.setItem(key, det.open));
   });
 });
