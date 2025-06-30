@@ -98,7 +98,7 @@ function getIconForIncident(inc) {
   if (hl.includes('closed'))                                return incidentIcons.closed;
   if (hl.includes('crash'))                                 return incidentIcons.crash;
   if (inc['event-type-id'].includes("RW")) return incidentIcons.cone;
-  if (hl.includes('disabled') || hl.includes('obstruction')) return incidentIcons.default;
+  if (hl.includes('disabled') || hl.includes('obstruction') || desc.includes('hazard')) return incidentIcons.default;
   if (desc.includes('No to Minimum Delay') || desc.includes('Informational Only')) return incidentIcons.noDelay;
   if (desc.includes('Estimated delay under 20 minutes'))    return incidentIcons.minorDelay;
   if (/hours/i.test(desc) || desc.toLowerCase().includes('closure with detour')) return incidentIcons.majorDelay;
@@ -236,6 +236,9 @@ function fetchOutages() {
         if (pointInCounty(o.latitude, o.longitude, 'douglas')) {
           totals.douglas.clpud += Number(o.custOut) || 0;
         }
+        if (pointInCounty(o.latitude, o.longitude, 'coos')) {
+          totals.coos.clpud += Number(o.custOut) || 0;
+        }
       });
       updateTotalsDisplay();
     })
@@ -252,7 +255,13 @@ function fetchOutages() {
         }).bindPopup(`
           <strong>Case Number:</strong> ${o.id}<br/>
           <strong>Impacted Meters:</strong> ${o.custOut}<br/>
-          <strong>Utility:</strong> <a href="https://outagemap.cooscurryelectric.com/">Coos-Curry Electric</a>
+          <strong>Pole:</strong> ${o.poleNumber || ''}<br/>
+          <strong>Element:</strong> ${o.elementName || ''}<br/>
+          <strong>Status:</strong> ${o.status || ''}<br/>
+          <strong>Cause:</strong> ${o.cause || ''}<br/>
+          <strong>Outage Time:</strong> ${o.outageTime || ''}<br/>
+          <strong>Restoration:</strong> ${o.restorationTime || ''}<br/>
+          <strong>Utility:</strong> <a href="https://outagemap.cooscurryelectric.com/" target="_blank">Coos-Curry Electric Cooperative</a>
         `).addTo(map);
         if (pointInCounty(o.latitude, o.longitude, 'coos')) {
           totals.coos.cce += Number(o.custOut) || 0;
@@ -507,7 +516,8 @@ fetch('/static/filtered_counties.geojson')
       "ODOT Traffic Incidents": odotLayer,
       "ODOT Cameras": cctvLayer,
       "ODOT Message Signs": dmsLayer
-    }, { collapsed: false }).addTo(map);
+    }, { collapsed: false, position: 'topleft' }).addTo(map);
+
 
     map.on('overlayadd',   e => { if (e.layer === odotLayer) localStorage.setItem('odotVisible','1'); });
     map.on('overlayremove',e => { if (e.layer === odotLayer) localStorage.setItem('odotVisible','0'); });
@@ -536,3 +546,31 @@ document.addEventListener("DOMContentLoaded", () => {
     det.addEventListener('toggle', () => localStorage.setItem(key, det.open));
   });
 });
+
+// ---- Legend tab logic ----
+const tabPower = document.getElementById('tab-power');
+const tabOdot = document.getElementById('tab-odot');
+const contentPower = document.getElementById('legend-content-power');
+const contentOdot = document.getElementById('legend-content-odot');
+function showTab(which) {
+  if (which === 'power') {
+    contentPower.style.display = '';
+    contentOdot.style.display = 'none';
+    tabPower.classList.add('legend-tab-active');
+    tabOdot.classList.remove('legend-tab-active');
+    localStorage.setItem('legendTab', 'power');
+  } else {
+    contentPower.style.display = 'none';
+    contentOdot.style.display = '';
+    tabPower.classList.remove('legend-tab-active');
+    tabOdot.classList.add('legend-tab-active');
+    localStorage.setItem('legendTab', 'odot');
+  }
+}
+if (tabPower && tabOdot && contentPower && contentOdot) {
+  tabPower.addEventListener('click', () => showTab('power'));
+  tabOdot.addEventListener('click', () => showTab('odot'));
+  // On load, restore last selected tab
+  const lastTab = localStorage.getItem('legendTab') || 'power';
+  showTab(lastTab);
+}
