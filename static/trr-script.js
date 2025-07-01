@@ -30,6 +30,7 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 }).addTo(map);
 
 // ---- LayerGroups for toggling ----
+const powerLayer = L.layerGroup();
 const odotLayer = L.layerGroup();
 const cctvLayer = L.layerGroup();
 const dmsLayer  = L.layerGroup();
@@ -98,7 +99,7 @@ function getIconForIncident(inc) {
   if (hl.includes('closed'))                                return incidentIcons.closed;
   if (hl.includes('crash'))                                 return incidentIcons.crash;
   if (inc['event-type-id'].includes("RW")) return incidentIcons.cone;
-  if (hl.includes('disabled') || hl.includes('obstruction') || desc.includes('hazard')) return incidentIcons.default;
+  if (hl.includes('disabled') || hl.includes('obstruction') || hl.includes('hazard')) return incidentIcons.default;
   if (desc.includes('No to Minimum Delay') || desc.includes('Informational Only')) return incidentIcons.noDelay;
   if (desc.includes('Estimated delay under 20 minutes'))    return incidentIcons.minorDelay;
   if (/hours/i.test(desc) || desc.toLowerCase().includes('closure with detour')) return incidentIcons.majorDelay;
@@ -169,13 +170,22 @@ function pointInCounty(lat, lon, county) {
 function fetchOutages() {
   Object.keys(totals).forEach(cty => Object.keys(totals[cty]).forEach(u => totals[cty][u] = 0));
 
+  // --- New: track open popup location before clearing ---
+  let openPopup = map._popup;
+  let openLatLng = null;
+  if (openPopup && openPopup._source && openPopup._source.getLatLng) {
+    openLatLng = openPopup._source.getLatLng();
+  }
+  powerLayer.clearLayers();
+  let lastOpenedMarker = null;
+
   // Pacific Power
   fetch('/outages')
     .then(r => r.json())
     .then(data => {
       (data[0]?.outages || []).forEach(o => {
         if (!o.latitude || !o.longitude) return;
-        L.circleMarker([o.latitude, o.longitude], {
+        const marker = L.circleMarker([o.latitude, o.longitude], {
           radius: 8, fillColor: '#007bff', color: '#000', weight: 1, opacity: 1, fillOpacity: 0.85
         }).bindPopup(`
           <strong>ZIP:</strong> ${o.zip}<br/>
@@ -185,7 +195,15 @@ function fetchOutages() {
           <strong>ETR:</strong> ${o.etr}<br/>
           <small>First Reported: ${o.reported}</small><br/>
           <strong>Utility:</strong> <a href="https://www.pacificpower.net/outages-safety.html">Pacific Power</a>
-        `).addTo(map);
+        `);
+
+        powerLayer.addLayer(marker);
+
+        if (openLatLng
+          && Math.abs(o.latitude - openLatLng.lat) < 0.0001
+          && Math.abs(o.longitude - openLatLng.lng) < 0.0001) {
+          lastOpenedMarker = marker;
+        }
 
         ['douglas','jackson','josephine','klamath','coos'].forEach(cty => {
           if (pointInCounty(o.latitude, o.longitude, cty)) {
@@ -203,14 +221,22 @@ function fetchOutages() {
     .then(list => {
       list.forEach(o => {
         if (!o.latitude || !o.longitude) return;
-        L.circleMarker([o.latitude, o.longitude], {
+        const marker = L.circleMarker([o.latitude, o.longitude], {
           radius: 8, fillColor: '#ffa500', color: '#000', weight: 1, opacity: 1, fillOpacity: 0.85
         }).bindPopup(`
           <strong>Impacted Meters:</strong> ${o.custOut}<br/>
           <strong>Status:</strong> ${o.planned ? 'Planned' : 'Unplanned'}<br/>
           <strong>ID:</strong> ${o.id}<br/>
           <strong>Utility:</strong> <a href="https://douglaselectric.outagemap.coop/">Douglas Electric</a>
-        `).addTo(map);
+        `);
+
+        powerLayer.addLayer(marker);
+
+        if (openLatLng
+          && Math.abs(o.latitude - openLatLng.lat) < 0.0001
+          && Math.abs(o.longitude - openLatLng.lng) < 0.0001) {
+          lastOpenedMarker = marker;
+        }
         if (pointInCounty(o.latitude, o.longitude, 'douglas')) {
           totals.douglas.dec += Number(o.custOut) || 0;
         }
@@ -225,14 +251,22 @@ function fetchOutages() {
     .then(list => {
       list.forEach(o => {
         if (!o.latitude || !o.longitude) return;
-        L.circleMarker([o.latitude, o.longitude], {
+        const marker = L.circleMarker([o.latitude, o.longitude], {
           radius: 8, fillColor: '#AA40FF', color: '#000', weight: 1, opacity: 1, fillOpacity: 0.85
         }).bindPopup(`
           <strong>Impacted Meters:</strong> ${o.custOut}<br/>
           <strong>Status:</strong> ${o.planned ? 'Planned' : 'Unplanned'}<br/>
           <strong>ID:</strong> ${o.id}<br/>
           <strong>Utility:</strong> <a href="https://clpud.org/customer-information/outages/outage-map/">Central Lincoln PUD</a>
-        `).addTo(map);
+        `);
+
+        powerLayer.addLayer(marker);
+
+        if (openLatLng
+          && Math.abs(o.latitude - openLatLng.lat) < 0.0001
+          && Math.abs(o.longitude - openLatLng.lng) < 0.0001) {
+          lastOpenedMarker = marker;
+        }
         if (pointInCounty(o.latitude, o.longitude, 'douglas')) {
           totals.douglas.clpud += Number(o.custOut) || 0;
         }
@@ -250,7 +284,7 @@ function fetchOutages() {
     .then(list => {
       list.forEach(o => {
         if (!o.latitude || !o.longitude) return;
-        L.circleMarker([o.latitude, o.longitude], {
+        const marker = L.circleMarker([o.latitude, o.longitude], {
           radius: 8, fillColor: '#e74c3c', color: '#000', weight: 1, opacity: 1, fillOpacity: 0.85
         }).bindPopup(`
           <strong>Case Number:</strong> ${o.id}<br/>
@@ -262,12 +296,23 @@ function fetchOutages() {
           <strong>Outage Time:</strong> ${o.outageTime || ''}<br/>
           <strong>Restoration:</strong> ${o.restorationTime || ''}<br/>
           <strong>Utility:</strong> <a href="https://outagemap.cooscurryelectric.com/" target="_blank">Coos-Curry Electric Cooperative</a>
-        `).addTo(map);
+        `);
+
+        powerLayer.addLayer(marker);
+
+        if (openLatLng
+          && Math.abs(o.latitude - openLatLng.lat) < 0.0001
+          && Math.abs(o.longitude - openLatLng.lng) < 0.0001) {
+          lastOpenedMarker = marker;
+        }
         if (pointInCounty(o.latitude, o.longitude, 'coos')) {
           totals.coos.cce += Number(o.custOut) || 0;
         }
       });
       updateTotalsDisplay();
+
+      // --- After all sources, re-open the marker if found ---
+      if (lastOpenedMarker) setTimeout(() => lastOpenedMarker.openPopup(), 10);
     })
     .catch(console.error);
 }
@@ -385,32 +430,88 @@ if (!document.getElementById('dms-board-css')) {
   const style = document.createElement('style');
   style.id = 'dms-board-css';
   style.textContent = `
-    .dms-board { display:inline-block; background:#111; border-radius:5px; padding:8px 12px; margin:6px 0; font-size:20px; }
-    .dms-row { white-space:pre; font-family:'Roboto Mono','Consolas','Courier New',monospace; letter-spacing:2px; color:#FFD600; font-weight:bold;
-      text-shadow:0 0 2px #FFD600, 0 0 6px #222; display:block; line-height:1.3; }
-  `;
+  .dms-board { display:inline-block; background:#111; border-radius:5px; padding:8px 12px; margin:6px 0; font-size:20px; }
+  .dms-row {
+    white-space:pre;
+    font-family:'Roboto Mono','Consolas','Courier New',monospace;
+    letter-spacing:2px;
+    color:#FFD600;
+    font-weight:bold;
+    text-shadow:0 0 2px #FFD600, 0 0 6px #222;
+    display:block;
+    line-height:1.3;
+    text-align:center;
+  }
+`;
   document.head.appendChild(style);
 }
 function formatDmsReaderBoard(st) {
   if (!st || !st.dmsCurrentMessage) return "";
-  const lines = [
-    st.dmsCurrentMessage.phase1Line1,
-    st.dmsCurrentMessage.phase1Line2,
-    st.dmsCurrentMessage.phase1Line3,
-    st.dmsCurrentMessage.phase2Line1,
-    st.dmsCurrentMessage.phase2Line2,
-    st.dmsCurrentMessage.phase2Line3
-  ].filter(Boolean);
 
-  if (!lines.length) return "";
+  // Get all six lines as array
+  let lines = [
+    st.dmsCurrentMessage.phase1Line1 || "",
+    st.dmsCurrentMessage.phase1Line2 || "",
+    st.dmsCurrentMessage.phase1Line3 || "",
+    st.dmsCurrentMessage.phase2Line1 || "",
+    st.dmsCurrentMessage.phase2Line2 || "",
+    st.dmsCurrentMessage.phase2Line3 || "",
+  ];
 
-  return `
-    <div class="dms-board">
-      ${lines.map(line =>
-        `<span class="dms-row">${line.replace(/ /g, '\u00A0')}</span>`
-      ).join('')}
-    </div>
-  `;
+  const maxLen = 20;
+
+  // Word-wrap any line that exceeds maxLen (chop, not word-wrap)
+  let processed = [];
+  for (const l of lines) {
+    let t = (l || "").trim();
+    if (t.length === 0) {
+      processed.push("");
+    } else {
+      // Split into lines of <= maxLen
+      while (t.length > 0) {
+        processed.push(t.slice(0, maxLen));
+        t = t.slice(maxLen);
+      }
+    }
+  }
+  // Trim leading/trailing blanks for vertical centering
+  while (processed.length > 0 && processed[0].trim() === "") processed.shift();
+  while (processed.length > 0 && processed[processed.length - 1].trim() === "") processed.pop();
+
+  // Vertically center to 6 lines
+  let n = processed.length;
+  let padTop = Math.floor((6 - n) / 2);
+  let padBot = 6 - n - padTop;
+  let centered = [
+    ...Array(padTop).fill(""),
+    ...processed,
+    ...Array(padBot).fill("")
+  ];
+
+  // Replace internal blank lines with dashes
+  for (let i = 1; i < 5; ++i) {
+    if (
+      centered[i].trim() === "" &&
+      centered.slice(0, i).some(x => x.trim() !== "") &&
+      centered.slice(i + 1).some(x => x.trim() !== "")
+    ) {
+      centered[i] = "-".repeat(maxLen);
+    }
+  }
+
+  // Center pad each line horizontally with nbsp for HTML
+  function centerPad(str) {
+    str = (str || "");
+    let pad = maxLen - str.length;
+    let left = Math.floor(pad / 2);
+    let right = pad - left;
+    return "\u00A0".repeat(left) + str + "\u00A0".repeat(right);
+  }
+
+  let rendered = centered
+    .map(l => `<span class="dms-row">${centerPad(l)}</span>`)
+    .join("");
+  return `<div class="dms-board">${rendered}</div>`;
 }
 function fetchDmsLayer() {
   // Remember which DMS marker popup is open (by device-id and lat/lon)
@@ -497,7 +598,16 @@ fetch('/static/filtered_counties.geojson')
       }).addTo(map);
     });
 
-    // Layer controls & state
+    // --- Power layer control ---
+    const powerVisible = localStorage.getItem('powerVisible');
+    if (powerVisible === null || powerVisible === '1') {
+      powerLayer.addTo(map);
+      localStorage.setItem('powerVisible','1');
+    }
+    map.on('overlayadd',   e => { if (e.layer === powerLayer) localStorage.setItem('powerVisible','1'); });
+    map.on('overlayremove',e => { if (e.layer === powerLayer) localStorage.setItem('powerVisible','0'); });
+
+    // Layer controls & state (Power first!)
     const odotSaved = localStorage.getItem('odotVisible');
     if (odotSaved === '1' || odotSaved === null) {
       odotLayer.addTo(map);
@@ -513,11 +623,11 @@ fetch('/static/filtered_counties.geojson')
     }
 
     L.control.layers(null, {
+      "Power Outages": powerLayer,
       "ODOT Traffic Incidents": odotLayer,
       "ODOT Cameras": cctvLayer,
       "ODOT Message Signs": dmsLayer
     }, { collapsed: false, position: 'topleft' }).addTo(map);
-
 
     map.on('overlayadd',   e => { if (e.layer === odotLayer) localStorage.setItem('odotVisible','1'); });
     map.on('overlayremove',e => { if (e.layer === odotLayer) localStorage.setItem('odotVisible','0'); });
