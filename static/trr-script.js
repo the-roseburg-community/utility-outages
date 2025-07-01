@@ -400,7 +400,7 @@ function fetchCameras() {
         marker.bindPopup(`
           <div style="max-width:340px;">
             <strong>${cam['device-name']}</strong><br/>
-            <img src="${cam['cctv-url']}"
+            <img src="${cam['cctv-url'].replace(/^http:/, 'https:')}"
                 alt="Camera image"
                 style="width:320px; height:auto; border:2px solid #7ea253; display:block; margin:6px auto;" />
             <em>${cam['cctv-other'] || ''}</em><br/>
