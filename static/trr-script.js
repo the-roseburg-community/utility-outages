@@ -30,7 +30,7 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 }).addTo(map);
 
 // ---- LayerGroups for toggling ----
-let powerLayer = L.layerGroup(); // CHANGED: let instead of const, for swapping
+let powerLayer = L.layerGroup();
 const odotLayer = L.layerGroup();
 const cctvLayer = L.layerGroup();
 const dmsLayer  = L.layerGroup();
@@ -176,14 +176,12 @@ function fetchOutages() {
   }
   let lastOpenedMarker = null;
 
-  // Fetch all 4 sources in parallel
   Promise.all([
     fetch('/outages').then(r => r.json()),
     fetch('/dec-outages').then(r => r.json()),
     fetch('/clpud-outages').then(r => r.json()),
     fetch('/cce-outages').then(r => r.json())
   ]).then(([pacificData, decData, clpudData, cceData]) => {
-    // --- NEW: Collect all markers first ---
     const markerList = [];
 
     // Pacific Power
@@ -200,15 +198,10 @@ function fetchOutages() {
         <small>First Reported: ${o.reported}</small><br/>
         <strong>Utility:</strong> <a href="https://www.pacificpower.net/outages-safety.html">Pacific Power</a>
       `);
-
       markerList.push(marker);
-
-      if (openLatLng
-        && Math.abs(o.latitude - openLatLng.lat) < 0.0001
-        && Math.abs(o.longitude - openLatLng.lng) < 0.0001) {
+      if (openLatLng && Math.abs(o.latitude - openLatLng.lat) < 0.0001 && Math.abs(o.longitude - openLatLng.lng) < 0.0001) {
         lastOpenedMarker = marker;
       }
-
       ['douglas','jackson','josephine','klamath','coos'].forEach(cty => {
         if (pointInCounty(o.latitude, o.longitude, cty)) {
           totals[cty].pacific += Number(o.custOut) || 0;
@@ -227,12 +220,8 @@ function fetchOutages() {
         <strong>ID:</strong> ${o.id}<br/>
         <strong>Utility:</strong> <a href="https://douglaselectric.outagemap.coop/">Douglas Electric</a>
       `);
-
       markerList.push(marker);
-
-      if (openLatLng
-        && Math.abs(o.latitude - openLatLng.lat) < 0.0001
-        && Math.abs(o.longitude - openLatLng.lng) < 0.0001) {
+      if (openLatLng && Math.abs(o.latitude - openLatLng.lat) < 0.0001 && Math.abs(o.longitude - openLatLng.lng) < 0.0001) {
         lastOpenedMarker = marker;
       }
       if (pointInCounty(o.latitude, o.longitude, 'douglas')) {
@@ -240,7 +229,6 @@ function fetchOutages() {
       }
     });
 
-    // Central Lincoln PUD
     clpudData.forEach(o => {
       if (!o.latitude || !o.longitude) return;
       const marker = L.circleMarker([o.latitude, o.longitude], {
@@ -251,12 +239,8 @@ function fetchOutages() {
         <strong>ID:</strong> ${o.id}<br/>
         <strong>Utility:</strong> <a href="https://clpud.org/customer-information/outages/outage-map/">Central Lincoln PUD</a>
       `);
-
       markerList.push(marker);
-
-      if (openLatLng
-        && Math.abs(o.latitude - openLatLng.lat) < 0.0001
-        && Math.abs(o.longitude - openLatLng.lng) < 0.0001) {
+      if (openLatLng && Math.abs(o.latitude - openLatLng.lat) < 0.0001 && Math.abs(o.longitude - openLatLng.lng) < 0.0001) {
         lastOpenedMarker = marker;
       }
       if (pointInCounty(o.latitude, o.longitude, 'douglas')) {
@@ -267,7 +251,6 @@ function fetchOutages() {
       }
     });
 
-    // Coos-Curry Electric
     cceData.forEach(o => {
       if (!o.latitude || !o.longitude) return;
       const marker = L.circleMarker([o.latitude, o.longitude], {
@@ -283,12 +266,8 @@ function fetchOutages() {
         <strong>Restoration:</strong> ${o.restorationTime || ''}<br/>
         <strong>Utility:</strong> <a href="https://outagemap.cooscurryelectric.com/" target="_blank">Coos-Curry Electric Cooperative</a>
       `);
-
       markerList.push(marker);
-
-      if (openLatLng
-        && Math.abs(o.latitude - openLatLng.lat) < 0.0001
-        && Math.abs(o.longitude - openLatLng.lng) < 0.0001) {
+      if (openLatLng && Math.abs(o.latitude - openLatLng.lat) < 0.0001 && Math.abs(o.longitude - openLatLng.lng) < 0.0001) {
         lastOpenedMarker = marker;
       }
       if (pointInCounty(o.latitude, o.longitude, 'coos')) {
@@ -297,13 +276,9 @@ function fetchOutages() {
     });
 
     updateTotalsDisplay();
-
-    // Only now, update the map all at once
     powerLayer.clearLayers();
     markerList.forEach(m => powerLayer.addLayer(m));
-
     if (lastOpenedMarker) setTimeout(() => lastOpenedMarker.openPopup(), 10);
-
   }).catch(console.error);
 }
 
@@ -314,10 +289,8 @@ function formatLaneInfo(inc) {
   const decCount = tl['decreasing-lane-count'] ?? 0;
   const incDir   = tl['increasing-direction']  || 'N/A';
   const incCount = tl['increasing-lane-count'] ?? 0;
-
   let summary = `${decDir}: ${decCount} lane${decCount !== 1 ? 's' : ''}, `
               + `${incDir}: ${incCount} lane${incCount !== 1 ? 's' : ''}`;
-
   const affected = tl['affected-lanes'] || [];
   if (affected.length) {
     const list = affected.map(a =>
@@ -335,21 +308,17 @@ function fetchOdotIncidents() {
       const openId    = openPopup
         ? openPopup._source.options.incidentId
         : null;
-
       odotLayer.clearLayers();
-
       (data.incidents || []).forEach(inc => {
         if (inc['is-active'] !== 'true') return;
         const loc = inc.location['start-location'];
         if (!loc?.['start-lat'] || !loc?.['start-long']) return;
         const lat = loc['start-lat'];
         const lon = loc['start-long'];
-
         const marker = L.marker([lat, lon], {
           icon: getIconForIncident(inc),
           incidentId: inc['incident-id']
         });
-
         const startMP  = loc['start-milepost'] ?? 'N/A';
         const endMP    = inc.location['end-location']?.['end-milepost'];
         const mpRange  = endMP ? `${startMP} – ${endMP}` : startMP;
@@ -364,10 +333,8 @@ function fetchOdotIncidents() {
           <strong>Created:</strong> ${new Date(inc['create-time']).toLocaleString()}<br/>
           <strong>Updated:</strong> ${new Date(inc['update-time']).toLocaleString()}
         `;
-
         marker.bindPopup(popup);
         odotLayer.addLayer(marker);
-
         if (inc['incident-id'] === openId) {
           marker.openPopup();
         }
@@ -379,7 +346,6 @@ function fetchOdotIncidents() {
 // ---- ODOT CAMERAS ----
 function fetchCameras() {
   cctvLayer.clearLayers();
-
   fetch('/odot-cctv')
     .then(r => r.json())
     .then(data => {
@@ -395,7 +361,6 @@ function fetchCameras() {
           iconSize: [38, 38],
           iconAnchor: [19, 19]
         });
-
         const marker = L.marker([cam.latitude, cam.longitude], { icon: cameraIcon });
         marker.bindPopup(`
           <div style="max-width:340px;">
@@ -435,7 +400,6 @@ if (!document.getElementById('dms-board-css')) {
 }
 function formatDmsReaderBoard(st) {
   if (!st || !st.dmsCurrentMessage) return "";
-
   let lines = [
     st.dmsCurrentMessage.phase1Line1 || "",
     st.dmsCurrentMessage.phase1Line2 || "",
@@ -444,7 +408,6 @@ function formatDmsReaderBoard(st) {
     st.dmsCurrentMessage.phase2Line2 || "",
     st.dmsCurrentMessage.phase2Line3 || "",
   ];
-
   const maxLen = 20;
   let processed = [];
   for (const l of lines) {
@@ -460,7 +423,6 @@ function formatDmsReaderBoard(st) {
   }
   while (processed.length > 0 && processed[0].trim() === "") processed.shift();
   while (processed.length > 0 && processed[processed.length - 1].trim() === "") processed.pop();
-
   let n = processed.length;
   let padTop = Math.floor((6 - n) / 2);
   let padBot = 6 - n - padTop;
@@ -469,7 +431,6 @@ function formatDmsReaderBoard(st) {
     ...processed,
     ...Array(padBot).fill("")
   ];
-
   for (let i = 1; i < 5; ++i) {
     if (
       centered[i].trim() === "" &&
@@ -479,7 +440,6 @@ function formatDmsReaderBoard(st) {
       centered[i] = "-".repeat(maxLen);
     }
   }
-
   function centerPad(str) {
     str = (str || "");
     let pad = maxLen - str.length;
@@ -487,7 +447,6 @@ function formatDmsReaderBoard(st) {
     let right = pad - left;
     return "\u00A0".repeat(left) + str + "\u00A0".repeat(right);
   }
-
   let rendered = centered
     .map(l => `<span class="dms-row">${centerPad(l)}</span>`)
     .join("");
@@ -501,7 +460,6 @@ function fetchDmsLayer() {
     openDmsId = openPopup._source.options.dmsId;
     openLatLng = openPopup._source.getLatLng();
   }
-
   Promise.all([
     fetch('/odot-dms-inventory').then(r => r.json()),
     fetch('/odot-dms-status').then(r => r.json())
@@ -510,7 +468,6 @@ function fetchDmsLayer() {
     if (!inventory["dms-inventory-items"] || !status["dmsItems"]) return;
     const statusMap = {};
     status["dmsItems"].forEach(d => statusMap[d["device-id"]] = d);
-
     inventory["dms-inventory-items"].forEach(sign => {
       const sid = sign["device-id"];
       const st = statusMap[sid];
@@ -542,7 +499,6 @@ function fetchDmsLayer() {
         dmsId: sid
       }).bindPopup(popup, {maxWidth: 340});
       dmsLayer.addLayer(marker);
-
       if (openDmsId && sid === openDmsId && openLatLng &&
           Math.abs(sign.latitude - openLatLng.lat) < 0.0001 &&
           Math.abs(sign.longitude - openLatLng.lng) < 0.0001) {
@@ -574,50 +530,10 @@ fetch('/static/filtered_counties.geojson')
         style: { color: cfg.color, weight: 4, fillColor: cfg.fill, fillOpacity: 0.3 }
       }).addTo(map);
     });
-
-    // --- Power layer control ---
-    const powerVisible = localStorage.getItem('powerVisible');
-    if (powerVisible === null || powerVisible === '1') {
-      powerLayer.addTo(map);
-      localStorage.setItem('powerVisible','1');
-    }
-    map.on('overlayadd',   e => { if (e.layer === powerLayer) localStorage.setItem('powerVisible','1'); });
-    map.on('overlayremove',e => { if (e.layer === powerLayer) localStorage.setItem('powerVisible','0'); });
-
-    // Layer controls & state (Power first!)
-    const odotSaved = localStorage.getItem('odotVisible');
-    if (odotSaved === '1' || odotSaved === null) {
-      odotLayer.addTo(map);
-      localStorage.setItem('odotVisible','1');
-    }
-    const cctvVisible = localStorage.getItem('cctvVisible');
-    if (cctvVisible === null || cctvVisible === '1') {
-      cctvLayer.addTo(map);
-    }
-    const dmsVisible = localStorage.getItem('dmsVisible');
-    if (dmsVisible === null || dmsVisible === '1') {
-      dmsLayer.addTo(map);
-    }
-
-    L.control.layers(null, {
-      "Power Outages": powerLayer,
-      "ODOT Traffic Incidents": odotLayer,
-      "ODOT Cameras": cctvLayer,
-      "ODOT Message Signs": dmsLayer
-    }, { collapsed: false, position: 'topleft' }).addTo(map);
-
-    map.on('overlayadd',   e => { if (e.layer === odotLayer) localStorage.setItem('odotVisible','1'); });
-    map.on('overlayremove',e => { if (e.layer === odotLayer) localStorage.setItem('odotVisible','0'); });
-    map.on('overlayadd',   e => { if (e.layer === cctvLayer) localStorage.setItem('cctvVisible', '1'); });
-    map.on('overlayremove',e => { if (e.layer === cctvLayer) localStorage.setItem('cctvVisible', '0'); });
-    map.on('overlayadd',   e => { if (e.layer === dmsLayer) localStorage.setItem('dmsVisible', '1'); });
-    map.on('overlayremove',e => { if (e.layer === dmsLayer) localStorage.setItem('dmsVisible', '0'); });
-
     fetchOutages();
     fetchOdotIncidents();
     fetchCameras();
     fetchDmsLayer();
-
     setInterval(fetchOutages, 30000);
     setInterval(fetchOdotIncidents, 60000);
     setInterval(fetchCameras, 5 * 60 * 1000);
@@ -660,3 +576,45 @@ if (tabPower && tabOdot && contentPower && contentOdot) {
   const lastTab = localStorage.getItem('legendTab') || 'power';
   showTab(lastTab);
 }
+
+// ---- Custom Layers Button/Panel Logic ----
+const layersButton = document.getElementById('layers-button');
+const layersPanel = document.getElementById('layers-panel');
+const layerToggles = {
+  power:  document.getElementById('layer-toggle-power'),
+  odot:   document.getElementById('layer-toggle-odot'),
+  cctv:   document.getElementById('layer-toggle-cctv'),
+  dms:    document.getElementById('layer-toggle-dms')
+};
+function setLayerVisible(layer, visible) {
+  if (layer === 'power')  visible ? powerLayer.addTo(map)   : map.removeLayer(powerLayer);
+  if (layer === 'odot')   visible ? odotLayer.addTo(map)    : map.removeLayer(odotLayer);
+  if (layer === 'cctv')   visible ? cctvLayer.addTo(map)    : map.removeLayer(cctvLayer);
+  if (layer === 'dms')    visible ? dmsLayer.addTo(map)     : map.removeLayer(dmsLayer);
+  localStorage.setItem(layer + 'Visible', visible ? '1' : '0');
+}
+function updateLayerTogglesFromStorage() {
+  Object.keys(layerToggles).forEach(layer => {
+    const stored = localStorage.getItem(layer + 'Visible');
+    const visible = stored === null ? true : stored === '1';
+    layerToggles[layer].checked = visible;
+    setLayerVisible(layer, visible);
+  });
+}
+updateLayerTogglesFromStorage();
+Object.entries(layerToggles).forEach(([layer, checkbox]) => {
+  checkbox.addEventListener('change', () => {
+    setLayerVisible(layer, checkbox.checked);
+  });
+});
+let panelOpen = localStorage.getItem('layersPanelOpen') === '1';
+function setPanel(open) {
+  panelOpen = open;
+  layersPanel.style.display = open ? 'block' : 'none';
+  localStorage.setItem('layersPanelOpen', open ? '1' : '0');
+}
+setPanel(panelOpen);
+layersButton.onclick = e => setPanel(!panelOpen);
+document.addEventListener('click', e => {
+  if (!layersPanel.contains(e.target) && !layersButton.contains(e.target)) setPanel(false);
+});

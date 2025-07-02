@@ -33,6 +33,27 @@
     </div>
   </header>
 
+  <div id="layers-button" style="position: absolute; left: 16px; top: 70px; z-index: 1001;">
+    <button aria-label="Layers" style="background:#fff; border-radius:8px; border:none; box-shadow:0 2px 7px #0002; padding:7px 12px; display:flex; align-items:center; gap:7px;">
+      <svg width="21" height="21" viewBox="0 0 24 24"><path fill="#7ea253" d="M12 3L2 9l10 6 10-6-10-6zm0 15.2l-7-4.2v2l7 4.2 7-4.2v-2l-7 4.2z"></path></svg>
+      <span>Layers</span>
+    </button>
+  </div>
+  <div id="layers-panel" style="display:none; position: absolute; left:16px; top: 110px; z-index:1002; background:#fff; border-radius:12px; box-shadow:0 4px 16px #0002; padding:14px 24px; min-width:170px;">
+    <label style="display:block; margin-bottom:10px;">
+      <input type="checkbox" id="layer-toggle-power"> Power Outages
+    </label>
+    <label style="display:block; margin-bottom:10px;">
+      <input type="checkbox" id="layer-toggle-odot"> ODOT Incidents
+    </label>
+    <label style="display:block; margin-bottom:10px;">
+      <input type="checkbox" id="layer-toggle-cctv"> ODOT Cameras
+    </label>
+    <label style="display:block;">
+      <input type="checkbox" id="layer-toggle-dms"> ODOT Message Signs
+    </label>
+  </div>
+
   <div id="map"></div>
 
   <div class="legend-toggle" id="legend-toggle">

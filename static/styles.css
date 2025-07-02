@@ -351,3 +351,8 @@ details[open] summary::before { transform: rotate(90deg); }
   box-shadow: 0 -1px 4px rgba(0,0,0,0.03);
 }
 
+#layers-panel label { cursor:pointer; font-size:16px; }
+#layers-panel input[type="checkbox"] { margin-right: 7px; }
+#layers-button button:focus { outline: 2px solid #7ea253; }
+
+
