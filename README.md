@@ -127,17 +127,19 @@ docker run -d -p 5001:5001 --name outage-map -e ODOT_SUBSCRIPTION_KEY=your-odot-
 ## Project Structure
 
 ```
-├── app.py                 # Flask application & API integration
-├── requirements.txt       # Python dependencies
-├── Dockerfile             # Container build instructions
+├── app.py                        # Flask application & API integration
+├── requirements.txt              # Python dependencies
+├── Dockerfile                    # Container build instructions
 ├── static/
 │   ├── favicon.ico
 │   ├── styles.css
-│   ├── trr-script.js      # Leaflet + all map/data logic
-│   └── dc.geojson         # County boundaries (can swap in your own)
+│   ├── trr-script.js             # Leaflet + all map/data logic
+│   └── dc.geojson                # County boundaries (can swap in your own). This one is for all of Oregon
+│   └──filtered_counties.geojson  # Custom County boundaries to make file much smaller for faster page load times
+│   └── mileposts.geojson         # Oregon milepost boundaries
 └── templates/
-    ├── index.html         # Main web UI
-    └── 404.html           # Custom 404 page
+    ├── index.html                # Main web UI
+    └── 404.html                  # Custom 404 page
 ```
 
 ---
