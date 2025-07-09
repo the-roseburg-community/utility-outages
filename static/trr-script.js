@@ -701,12 +701,38 @@ function updateMilepostsLayer() {
   if (!map.hasLayer(milepostLayer)) return;
   if (map.getZoom() < 13) return;
   const bounds = map.getBounds();
+  const placed = {};
+  // We need an offset because there are duplicate mileposts from the ODOT data.
+  // Instead, get the first one and remove the one nearest it if its 1/8 of a mile
+  // or closer.
+  const MIN_DIST_DEGREES = 0.00175; // About 1/8 mile at Oregon latitude
+
   allMilepostFeatures.forEach(f => {
     const [lon, lat] = f.geometry.coordinates;
-    if (!bounds.contains([lat, lon])) return; // Only add markers in view!
+    if (!bounds.contains([lat, lon])) return;
+
     const props = f.properties;
-    const mp = props.MP !== undefined ? props.MP : (props.MILEPOST || props.milepost || props.MILE || '');
-    const mpLabel = typeof mp === 'number' ? mp.toFixed(2) : mp;
+    // Label logic
+    let mpLabel = '';
+    if (props.MP_DISP != null && props.MP_DISP !== '' && props.MP_DISP !== undefined) {
+      mpLabel = String(props.MP_DISP);
+    } else if (props.MP != null && props.MP !== '' && props.MP !== undefined) {
+      mpLabel = String(props.MP);
+    }
+    if (mpLabel.endsWith('.00')) mpLabel = mpLabel.slice(0, -3);
+    if (!mpLabel) return;
+
+    // Deduplication logic
+    if (!placed[mpLabel]) placed[mpLabel] = [];
+    const near = placed[mpLabel].some(([plat, plon]) => {
+      const dLat = lat - plat, dLon = lon - plon;
+      return (dLat * dLat + dLon * dLon) < (MIN_DIST_DEGREES * MIN_DIST_DEGREES);
+    });
+    if (near) return;
+
+    placed[mpLabel].push([lat, lon]);
+
+    // Marker rendering
     const marker = L.marker([lat, lon], {
       icon: L.divIcon({
         className: 'milepost-number-label',
