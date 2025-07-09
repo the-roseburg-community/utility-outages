@@ -5,6 +5,8 @@ import requests
 import re
 import json
 import os
+import threading
+import time
 
 app = Flask(
     __name__,
@@ -21,6 +23,23 @@ DEC_SUMMARY_URL = "https://outagemap-data.cloud.coop/douglaselectric/Hosted_Outa
 CLPUD_SUMMARY_URL = "https://outagemap-data.cloud.coop/clpud/Hosted_Outage_Map/summary.json"
 # ---- Coos Curry Electric ----
 CCE_URL = "https://outagemap.cooscurryelectric.com/OMSWebMap/MobileMap/OMSMobileService.asmx/GetAllOutages"
+# ODOT Incidents URL
+ODOT_URL = (
+    "https://api.odot.state.or.us/tripcheck/Incidents"
+)
+ODOT_CCTV_URL = "https://api.odot.state.or.us/tripcheck/Cctv/Inventory"
+odot_cctv_cache = {"data": None, "timestamp": 0, "error": None}
+ODOT_CCTV_POLL_INTERVAL = 86400  # seconds
+
+# --- ODOT DMS ---
+ODOT_DMS_INVENTORY_URL = "https://api.odot.state.or.us/tripcheck/Dms/Inventory"
+ODOT_DMS_STATUS_URL = "https://api.odot.state.or.us/tripcheck/Dms/Status"
+dms_inventory_cache = {"data": None, "timestamp": 0, "error": None}
+dms_status_cache = {"data": None, "timestamp": 0, "error": None}
+DMS_INVENTORY_POLL_INTERVAL = 86400  # 24 hours
+DMS_STATUS_POLL_INTERVAL = 30        # seconds
+
+ODOT_KEY = os.getenv("ODOT_SUBSCRIPTION_KEY") # Required - pass in env file
 
 # --- Douglas Electric Calibration ---
 dec_x1, dec_y1 = 80642, 80827
@@ -55,6 +74,33 @@ def map_clpud_xy_to_latlon(x, y):
     lat = clpud_a * y + clpud_b
     lon = clpud_c * x + clpud_d
     return lat, lon
+
+# -------- ODOT CACHE (and poller) --------
+# This is a MUST!! Otherwise the ODOT API will be loaded on each user request. Don't want that.
+odot_cache = {"data": None, "timestamp": 0, "error": None}
+ODOT_POLL_INTERVAL = 30  # seconds
+
+def poll_odot():
+    while True:
+        try:
+            print("[ODOT] Fetching live data from API")
+            headers = {
+                "Cache-Control": "no-cache",
+                "Ocp-Apim-Subscription-Key": ODOT_KEY,
+            }
+            resp = requests.get(ODOT_URL, headers=headers, timeout=10)
+            resp.raise_for_status()
+            odot_cache["data"] = resp.json()
+            odot_cache["timestamp"] = time.time()
+            odot_cache["error"] = None
+            print(f"[ODOT] Cache updated at {time.ctime(odot_cache['timestamp'])}")
+        except Exception as e:
+            odot_cache["error"] = str(e)
+            print(f"[ODOT] Error updating cache: {e}")
+        time.sleep(ODOT_POLL_INTERVAL)
+
+threading.Thread(target=poll_odot, daemon=True).start()
+# -------- END ODOT CACHE --------
 
 @app.route("/outages")
 def get_pacific_power_outages():
@@ -138,6 +184,106 @@ def get_cce_outages():
         return jsonify(outages)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+@app.route("/odot-incidents")
+def get_odot_incidents():
+    # Serve only the cached data
+    if odot_cache["data"]:
+        return jsonify(odot_cache["data"])
+    elif odot_cache["error"]:
+        return jsonify({"error": odot_cache["error"]}), 503
+    else:
+        return jsonify({"error": "No ODOT data cached yet."}), 503
+
+def poll_odot_cctv():
+    while True:
+        try:
+            print("[ODOT CCTV] Fetching camera data from API")
+            headers = {
+                "Cache-Control": "no-cache",
+                "Ocp-Apim-Subscription-Key": ODOT_KEY  # Make sure this is set!
+            }
+            resp = requests.get(ODOT_CCTV_URL, headers=headers, timeout=15)
+            resp.raise_for_status()
+            odot_cctv_cache["data"] = resp.json()
+            odot_cctv_cache["timestamp"] = time.time()
+            odot_cctv_cache["error"] = None
+            print(f"[ODOT CCTV] Cache updated at {time.ctime(odot_cctv_cache['timestamp'])}")
+        except Exception as e:
+            odot_cctv_cache["error"] = str(e)
+            print(f"[ODOT CCTV] Error updating cache: {e}")
+        time.sleep(ODOT_CCTV_POLL_INTERVAL)
+
+# Start the poller in a thread
+threading.Thread(target=poll_odot_cctv, daemon=True).start()
+
+@app.route("/odot-cctv")
+def get_odot_cctv():
+    if odot_cctv_cache["data"]:
+        return jsonify(odot_cctv_cache["data"])
+    elif odot_cctv_cache["error"]:
+        return jsonify({"error": odot_cctv_cache["error"]}), 503
+    else:
+        return jsonify({"error": "No ODOT CCTV data cached yet."}), 503
+
+def poll_dms_inventory():
+    while True:
+        try:
+            print("[ODOT DMS] Fetching inventory...")
+            headers = {
+                "Cache-Control": "no-cache",
+                "Ocp-Apim-Subscription-Key": ODOT_KEY
+            }
+            r = requests.get(ODOT_DMS_INVENTORY_URL, headers=headers, timeout=20)
+            r.raise_for_status()
+            dms_inventory_cache["data"] = r.json()
+            dms_inventory_cache["timestamp"] = time.time()
+            dms_inventory_cache["error"] = None
+            print(f"[ODOT DMS] Inventory cache updated at {time.ctime(dms_inventory_cache['timestamp'])}")
+        except Exception as e:
+            dms_inventory_cache["error"] = str(e)
+            print(f"[ODOT DMS] Inventory error: {e}")
+        time.sleep(DMS_INVENTORY_POLL_INTERVAL)
+
+def poll_dms_status():
+    while True:
+        try:
+            print("[ODOT DMS] Fetching status...")
+            headers = {
+                "Cache-Control": "no-cache",
+                "Ocp-Apim-Subscription-Key": ODOT_KEY
+            }
+            r = requests.get(ODOT_DMS_STATUS_URL, headers=headers, timeout=20)
+            r.raise_for_status()
+            dms_status_cache["data"] = r.json()
+            dms_status_cache["timestamp"] = time.time()
+            dms_status_cache["error"] = None
+            print(f"[ODOT DMS] Status cache updated at {time.ctime(dms_status_cache['timestamp'])}")
+        except Exception as e:
+            dms_status_cache["error"] = str(e)
+            print(f"[ODOT DMS] Status error: {e}")
+        time.sleep(DMS_STATUS_POLL_INTERVAL)
+
+threading.Thread(target=poll_dms_inventory, daemon=True).start()
+threading.Thread(target=poll_dms_status, daemon=True).start()
+
+@app.route("/odot-dms-inventory")
+def get_odot_dms_inventory():
+    if dms_inventory_cache["data"]:
+        return jsonify(dms_inventory_cache["data"])
+    elif dms_inventory_cache["error"]:
+        return jsonify({"error": dms_inventory_cache["error"]}), 503
+    else:
+        return jsonify({"error": "No ODOT DMS inventory cached yet."}), 503
+
+@app.route("/odot-dms-status")
+def get_odot_dms_status():
+    if dms_status_cache["data"]:
+        return jsonify(dms_status_cache["data"])
+    elif dms_status_cache["error"]:
+        return jsonify({"error": dms_status_cache["error"]}), 503
+    else:
+        return jsonify({"error": "No ODOT DMS status cached yet."}), 503
 
 @app.route("/")
 def serve_index():

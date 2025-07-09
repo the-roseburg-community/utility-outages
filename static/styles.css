@@ -306,3 +306,53 @@ details[open] summary::before { transform: rotate(90deg); }
   user-select: none;
   transform: translate(-50%, -50%);
 }
+
+/* Readber board text */
+.dms-board {
+  display: inline-block;
+  background: #111;
+  border-radius: 5px;
+  padding: 8px 12px;
+  margin: 6px 0;
+  font-size: 20px;
+}
+.dms-row {
+  white-space: pre;
+  font-family: 'Roboto Mono', 'Consolas', 'Courier New', monospace;
+  letter-spacing: 2px;
+  color: #FFD600;
+  font-weight: bold;
+  text-shadow: 0 0 2px #FFD600, 0 0 6px #222;
+  display: block;
+  line-height: 1.3;
+}
+
+/* Tabs */
+.legend-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.legend-tab {
+  background: #ededed;
+  border: 1px solid #b2b2b2;
+  border-radius: 6px 6px 0 0;
+  padding: 2px 18px;
+  cursor: pointer;
+  font-weight: 600;
+  color: #444;
+  transition: background 0.2s;
+  outline: none;
+}
+.legend-tab-active {
+  background: #fff;
+  border-bottom: 1px solid #fff;
+  color: #222;
+  box-shadow: 0 -1px 4px rgba(0,0,0,0.03);
+}
+
+#layers-panel label { cursor:pointer; font-size:16px; }
+#layers-panel input[type="checkbox"] { margin-right: 7px; }
+#layers-button button:focus { outline: 2px solid #7ea253; }
+
+
