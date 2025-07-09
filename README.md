@@ -7,7 +7,7 @@ A real-time web application that visualizes power outages across multiple utilit
 - **Central Lincoln PUD**
 - **Coos-Curry Electric Cooperative**
 
-and renders them on an interactive county map, complete with per-utility customer outage counts.
+and renders them on an interactive county map, complete with per-utility customer outage counts and full ODOT traffic integration.
 
 ---
 
@@ -36,7 +36,11 @@ and renders them on an interactive county map, complete with per-utility custome
 - **County polygons** with configurable styles and legend toggle
 - **Per-county outage summaries** by utility, with localStorage state persistence
 - **Automated page refresh** and data polling for near-real-time updates
-- **Responsive design** and accessibility considerations
+- **Responsive, mobile-friendly design** and accessibility considerations
+- **Full ODOT integration:**  
+  - Traffic Incidents (live from TripCheck API)
+  - ODOT CCTV Camera layer (statewide)
+  - ODOT DMS (Message Board) layer, with live sign messages
 
 ---
 
@@ -52,11 +56,11 @@ Access the live map at:
 1. **Frontend**
    - **Leaflet.js** for map rendering
    - **Turf.js** for point-in-polygon detection
-   - **Vanilla JavaScript** for legend toggle, details panels, and data polling
+   - **Vanilla JavaScript** for UI, legend toggles, data polling, and all map logic
 
 2. **Backend**
    - **Flask** application serving static assets and JSON REST endpoints
-   - **Requests** to external outage data sources
+   - **Requests** to external outage and ODOT data sources, with polling and caching
    - **Custom calibration** functions to convert proprietary (x, y) coordinates to WGS84 lat/lon for DEC and CLPUD
 
 ---
@@ -71,14 +75,15 @@ Access the live map at:
 ### Installation
 
 ```bash
-git clone https://github.com/your-org/roseburg-receiver-outage-map.git
-cd roseburg-receiver-outage-map
+git clone https://github.com/the-roseburg-community/utility-outages.git
+cd utility-outages
 pip install -r requirements.txt
 ```
 
 ### Configuration
 
-No secrets are required. External data sources are hard-coded:
+No secrets required for outage data.  
+**Note:** ODOT (TripCheck) endpoints require a free API key. Set this in your environment as `ODOT_SUBSCRIPTION_KEY`.
 
 - `PACIFIC_POWER_URL`
 - `DEC_SUMMARY_URL`
@@ -91,6 +96,7 @@ Adjust coordinate calibration constants in `app.py` if utilities change their fe
 
 ```bash
 export FLASK_APP=app.py
+export ODOT_SUBSCRIPTION_KEY=your-odot-key
 flask run --host=0.0.0.0 --port=5001
 ```
 
@@ -100,7 +106,7 @@ Or:
 python app.py
 ```
 
-Open your browser at `http://localhost:5001`.
+Open your browser at [http://localhost:5001](http://localhost:5001).
 
 ### Docker
 
@@ -113,26 +119,24 @@ docker build -t roseburg-outage-map .
 Run the container:
 
 ```bash
-docker run -d -p 5001:5001   --name outage-map   roseburg-outage-map
+docker run -d -p 5001:5001 --name outage-map -e ODOT_SUBSCRIPTION_KEY=your-odot-key roseburg-outage-map
 ```
-
-Access the application at `http://localhost:5001`.
 
 ---
 
 ## Project Structure
 
 ```
-├── app.py                 # Flask application
+├── app.py                 # Flask application & API integration
 ├── requirements.txt       # Python dependencies
 ├── Dockerfile             # Container build instructions
 ├── static/
 │   ├── favicon.ico
 │   ├── styles.css
-│   ├── trr-script.js      # Leaflet + data-fetch logic
-│   └── dc.geojson         # County boundaries
+│   ├── trr-script.js      # Leaflet + all map/data logic
+│   └── dc.geojson         # County boundaries (can swap in your own)
 └── templates/
-    ├── index.html         # Main page template
+    ├── index.html         # Main web UI
     └── 404.html           # Custom 404 page
 ```
 
@@ -140,14 +144,18 @@ Access the application at `http://localhost:5001`.
 
 ## API Endpoints
 
-| Route            | Description                                                        |
-| ---------------- | ------------------------------------------------------------------ |
-| `/`              | Renders the outage map UI                                          |
-| `/outages`       | Pacific Power JSON feed                                            |
-| `/dec-outages`   | Douglas Electric Cooperative outages (with x/y → lat/lon mapping)  |
-| `/clpud-outages` | Central Lincoln PUD outages (with x/y → lat/lon mapping)           |
-| `/cce-outages`   | Coos-Curry Electric XML feed parsed into JSON                      |
-| `/static/<path>` | Serves CSS, JS, geoJSON, and other static assets                   |
+| Route                | Description                                                        |
+| -------------------- | ------------------------------------------------------------------ |
+| `/`                  | Renders the outage map UI                                          |
+| `/outages`           | Pacific Power JSON feed                                            |
+| `/dec-outages`       | Douglas Electric Cooperative outages (with x/y → lat/lon mapping)  |
+| `/clpud-outages`     | Central Lincoln PUD outages (with x/y → lat/lon mapping)           |
+| `/cce-outages`       | Coos-Curry Electric XML feed parsed into JSON                      |
+| `/odot-incidents`    | Live ODOT incident/closure feed                                    |
+| `/odot-cctv`         | ODOT CCTV camera layer (statewide)                                 |
+| `/odot-dms-inventory`| ODOT message board (DMS) location and info                         |
+| `/odot-dms-status`   | ODOT message board live status/messages                            |
+| `/static/<path>`     | Serves CSS, JS, geoJSON, and other static assets                   |
 
 ---
 
@@ -155,7 +163,8 @@ Access the application at `http://localhost:5001`.
 
 - **Styling**: update `styles.css` and adjust `countyStyles` in `trr-script.js`
 - **County GeoJSON**: swap out `dc.geojson` for any other region
-- **Polling Interval**: modify the `setInterval` duration in `trr-script.js` and the `<meta http-equiv="refresh">` tag in `index.html`
+- **Polling Interval**: modify the `setInterval` duration in `trr-script.js`
+- **Legend/Layer UI**: Add new toggles and layers as needed
 
 ---
 
@@ -172,4 +181,16 @@ Please ensure all changes include appropriate tests and documentation updates.
 
 ## License
 
-Distributed under the GNU General Public License. See `LICENSE` for details.
+Distributed under the GNU General Public License v3.0 (GPL-3.0).  
+See `LICENSE` for details.
+
+---
+
+## Project Ownership
+
+Community-driven by [The Roseburg Receiver](https://roseburgscanner.com)  
+Douglas County, Oregon – Not-for-profit, open to all.
+
+Contact & Info: [roseburgscanner.com/about/#contact-the-roseburg-receiver](https://www.roseburgscanner.com/about/#contact-the-roseburg-receiver)
+
+---

@@ -1,3 +1,114 @@
+/**
+ * ============================================================================
+ *               The Roseburg Receiver - Utility Outage & Incident Map 
+ *                  https://github.com/the-roseburg-community/utility-outages
+ *                   (c) The Roseburg Receiver Community, 2024-2025+
+ * ============================================================================
+ *
+ *  Live Power Outages • ODOT Traffic Incidents • Road Cameras • Mileposts
+ *  For Douglas County, Oregon and surrounding communities
+ *
+ * ----------------------------------------------------------------------------
+ *  This file provides the main client-side logic for the interactive map at
+ *  https://outages.roseburgscanner.com
+ *
+ *  FEATURES:
+ *   - Layer toggling and persistent UI settings with localStorage
+ *   - Live Leaflet map with custom SVG markers for outages/incidents/cameras/signs
+ *   - Restores last popup after auto-refresh (unless user closed it)
+ *   - Responsive, mobile-friendly design
+ *   - Efficient, debounced updates for large datasets (e.g. mileposts)
+ *   - County overlays and utility statistics
+ *   - Extensible design for new data layers
+ *
+ * ----------------------------------------------------------------------------
+ *  OPEN SOURCE LICENSE:
+ *
+ *  This project is licensed under the GNU General Public License v3.0.
+ *  You are free to use, modify, and redistribute it under the terms of the GPL-3.0.
+ *  See LICENSE or https://www.gnu.org/licenses/gpl-3.0.en.html for details.
+ *
+ *  Contributions are welcome! Please see:
+ *     https://github.com/the-roseburg-community/utility-outages
+ *  for issue tracking, documentation, and how to get involved.
+ *
+ * ----------------------------------------------------------------------------
+ *  PROJECT OWNERSHIP:
+ *
+ *      The Roseburg Receiver
+ *      Douglas County Community Emergency Information Project
+ *      Roseburg, Oregon — https://roseburgscanner.com
+ *      Community, not-for-profit, and open to public contribution.
+ *
+ *  Contact & Info: https://www.roseburgscanner.com/about/#contact-the-roseburg-receiver
+ *
+ * ============================================================================
+ /**
+ * =============================================================================
+ *    The Roseburg Receiver – Outage & Incident Map (Front-End Logic)  
+ * =============================================================================
+ *
+ *  This script powers the interactive Leaflet.js-based utility map at
+ *  https://outages.roseburgscanner.com, providing real-time visualization
+ *  of power outages, ODOT traffic incidents, road cameras, DMS message boards,
+ *  and Oregon mileposts for Douglas County and surrounding regions.
+ *
+ *  MAJOR COMPONENTS:
+ *  -----------------
+ *  - Legend Toggle & Persistence
+ *      • Shows/hides the map legend, remembers user preference (localStorage)
+ *  - Map Initialization
+ *      • Sets up Leaflet map, default center/zoom, and OSM tile layer
+ *  - Popup State Logic
+ *      • Remembers the last opened popup so it can be restored after refresh
+ *      • Detects when user closes popups (so we don't re-open them automatically)
+ *  - Layer Management
+ *      • Uses Leaflet LayerGroups for power, ODOT, camera, DMS, and milepost data
+ *      • Custom toggle UI for enabling/disabling each layer (with state persistence)
+ *  - SVG Icon Helpers
+ *      • Provides reusable SVG marker icons for incidents, power, cameras, etc.
+ *  - County Polygons & Styling
+ *      • Loads and styles GeoJSON county boundaries
+ *      • Tracks outage totals by county/utility (and updates legend)
+ *  - Outage Fetch/Render
+ *      • Aggregates and displays power outage data from multiple utilities
+ *      • Supports custom coordinate transforms for DEC/CLPUD proprietary formats
+ *      • Automatically updates (polls) every 30 seconds
+ *  - ODOT Incidents, Cameras, DMS Signs
+ *      • Fetches and displays traffic events, road cams, and dynamic signs from ODOT
+ *      • Each type has custom icon, popup, and update interval
+ *  - Mileposts
+ *      • Loads Oregon milepost locations as GeoJSON
+ *      • Only renders labels at high zoom, within current map bounds, and if toggled on
+ *      • Uses a debounce for fast, smooth user interaction
+ *  - UI/UX
+ *      • Supports mobile/responsive layout
+ *      • Remembers legend tabs, <details> panel state, and layer toggles
+ *      • Hides or shows map layers and legends based on user actions and saved settings
+ *
+ *  DEPENDENCIES:
+ *  -------------
+ *    - Leaflet.js
+ *    - Turf.js (for point-in-polygon/county matching)
+ *    - Browser localStorage for UI state
+ *
+ *  DATA SOURCES:
+ *  -------------
+ *    - Backend API endpoints (`/outages`, `/dec-outages`, `/clpud-outages`, `/cce-outages`)
+ *    - ODOT incident/camera/sign endpoints proxied by Flask server
+ *    - County/milepost GeoJSON static assets
+ *
+ *  CUSTOMIZATION POINTS:
+ *  --------------------
+ *    - Adjust `countyStyles` for different county/utility coloring
+ *    - Edit SVG markup in `svgIcon()` and `incidentIcons` for branding
+ *    - Change polling intervals for fresher/slower data
+ *    - Extend with new utilities, counties, or incident types as needed
+ *
+ *  (c) The Roseburg Receiver Community – Open Source, GPL-3.0
+ * =============================================================================
+ */
+
 // ---- Legend toggle logic with localStorage ----
 const legend       = document.getElementById('map-legend');
 const legendToggle = document.getElementById('legend-toggle');
@@ -29,11 +140,44 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   attribution: 'Map data © OpenStreetMap contributors'
 }).addTo(map);
 
+let lastOpenedLatLng = null;
+let popupManuallyClosed = false;
+let programmaticClose = false;
+
+map.on('popupclose', function(e) {
+  if (programmaticClose) {
+    // This close event was triggered by our code, NOT the user.
+    programmaticClose = false;
+    return;
+  }
+  if (
+    lastOpenedLatLng &&
+    e.popup._latlng &&
+    Math.abs(e.popup._latlng.lat - lastOpenedLatLng.lat) < 0.0001 &&
+    Math.abs(e.popup._latlng.lng - lastOpenedLatLng.lng) < 0.0001
+  ) {
+    popupManuallyClosed = true;
+    lastOpenedLatLng = null;
+  }
+});
+map.on('popupopen', function(e) {
+  // Only reset popupManuallyClosed if this popup is for a different marker than before
+  if (
+    !lastOpenedLatLng ||
+    Math.abs(e.popup._latlng.lat - lastOpenedLatLng.lat) > 0.0001 ||
+    Math.abs(e.popup._latlng.lng - lastOpenedLatLng.lng) > 0.0001
+  ) {
+    popupManuallyClosed = false;
+    lastOpenedLatLng = e.popup._latlng;
+  }
+});
+
 // ---- LayerGroups for toggling ----
 let powerLayer = L.layerGroup();
 const odotLayer = L.layerGroup();
 const cctvLayer = L.layerGroup();
 const dmsLayer  = L.layerGroup();
+const milepostLayer = L.layerGroup();
 
 // ---- SVG ICON HELPERS ----
 function svgIcon(svgString, size = [24,24]) {
@@ -201,6 +345,7 @@ function fetchOutages() {
       markerList.push(marker);
       if (openLatLng && Math.abs(o.latitude - openLatLng.lat) < 0.0001 && Math.abs(o.longitude - openLatLng.lng) < 0.0001) {
         lastOpenedMarker = marker;
+        lastOpenedLatLng = openLatLng;
       }
       ['douglas','jackson','josephine','klamath','coos'].forEach(cty => {
         if (pointInCounty(o.latitude, o.longitude, cty)) {
@@ -223,6 +368,7 @@ function fetchOutages() {
       markerList.push(marker);
       if (openLatLng && Math.abs(o.latitude - openLatLng.lat) < 0.0001 && Math.abs(o.longitude - openLatLng.lng) < 0.0001) {
         lastOpenedMarker = marker;
+        lastOpenedLatLng = openLatLng;
       }
       if (pointInCounty(o.latitude, o.longitude, 'douglas')) {
         totals.douglas.dec += Number(o.custOut) || 0;
@@ -276,9 +422,15 @@ function fetchOutages() {
     });
 
     updateTotalsDisplay();
+    programmaticClose = true;
     powerLayer.clearLayers();
     markerList.forEach(m => powerLayer.addLayer(m));
-    if (lastOpenedMarker) setTimeout(() => lastOpenedMarker.openPopup(), 10);
+    if (lastOpenedMarker && !popupManuallyClosed) {
+      setTimeout(() => lastOpenedMarker.openPopup(), 10);
+    } else {
+      // When manually closed, forget the marker so it's not "remembered" forever.
+      lastOpenedLatLng = null;
+    }
   }).catch(console.error);
 }
 
@@ -541,6 +693,75 @@ fetch('/static/filtered_counties.geojson')
   })
   .catch(console.error);
 
+// ---- MILEPOSTS LAYER (SHOWS ONLY TEXT WHEN ZOOMED IN) ----
+let allMilepostFeatures = [];
+let milepostMarkersLayer = L.layerGroup();
+function updateMilepostsLayer() {
+  milepostMarkersLayer.clearLayers();
+  if (!map.hasLayer(milepostLayer)) return;
+  if (map.getZoom() < 13) return;
+  const bounds = map.getBounds();
+  allMilepostFeatures.forEach(f => {
+    const [lon, lat] = f.geometry.coordinates;
+    if (!bounds.contains([lat, lon])) return; // Only add markers in view!
+    const props = f.properties;
+    const mp = props.MP !== undefined ? props.MP : (props.MILEPOST || props.milepost || props.MILE || '');
+    const mpLabel = typeof mp === 'number' ? mp.toFixed(2) : mp;
+    const marker = L.marker([lat, lon], {
+      icon: L.divIcon({
+        className: 'milepost-number-label',
+        html: `<span style="
+          display:inline-block;
+          min-width:18px;
+          font-size:11px;
+          color:#2185d0;
+          font-weight:bold;
+          background:rgba(255,255,255,0.92);
+          border:1px solid #e0e0e0;
+          border-radius:5px;
+          padding:1px 3px;
+          box-shadow: 0 1px 3px #0002;
+          text-align:center;
+        ">${mpLabel}</span>`,
+        iconSize: [24, 16],
+        iconAnchor: [12, 8]
+      }),
+      interactive: false
+    });
+    milepostMarkersLayer.addLayer(marker);
+  });
+  milepostLayer.clearLayers();
+  milepostLayer.addLayer(milepostMarkersLayer);
+}
+
+// Fetch milepost GeoJSON, store all features, update when needed
+fetch('/static/mileposts.geojson')
+  .then(res => res.json())
+  .then(geojson => {
+    // Deduplicate by rounded (lon, lat, mp)
+    const seen = new Set();
+    allMilepostFeatures = geojson.features.filter(f => {
+      const p = f.properties;
+      const coords = f.geometry.coordinates;
+      const key = [
+        coords[0].toFixed(6),
+        coords[1].toFixed(6),
+        p.MP !== undefined ? p.MP : (p.MILEPOST || p.milepost || p.MILE || '')
+      ].join('|');
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+    updateMilepostsLayer();
+  });
+
+let milepostDebounce;
+function debouncedMilepostsUpdate() {
+  clearTimeout(milepostDebounce);
+  milepostDebounce = setTimeout(updateMilepostsLayer, 250);
+}
+map.on('zoomend moveend', debouncedMilepostsUpdate);
+
 // ---- Persist <details> state (county accordions) ----
 document.addEventListener("DOMContentLoaded", () => {
   document.querySelectorAll('details[id]').forEach(det => {
@@ -584,13 +805,21 @@ const layerToggles = {
   power:  document.getElementById('layer-toggle-power'),
   odot:   document.getElementById('layer-toggle-odot'),
   cctv:   document.getElementById('layer-toggle-cctv'),
-  dms:    document.getElementById('layer-toggle-dms')
+  dms:    document.getElementById('layer-toggle-dms'),
+  mileposts: document.getElementById('layer-toggle-mileposts')
 };
 function setLayerVisible(layer, visible) {
-  if (layer === 'power')  visible ? powerLayer.addTo(map)   : map.removeLayer(powerLayer);
-  if (layer === 'odot')   visible ? odotLayer.addTo(map)    : map.removeLayer(odotLayer);
-  if (layer === 'cctv')   visible ? cctvLayer.addTo(map)    : map.removeLayer(cctvLayer);
-  if (layer === 'dms')    visible ? dmsLayer.addTo(map)     : map.removeLayer(dmsLayer);
+  if (layer === 'mileposts') {
+    if (visible) {
+      map.addLayer(milepostLayer);
+    } else {
+      map.removeLayer(milepostLayer);
+    }
+    updateMilepostsLayer(); // Always update to match zoom/toggle state
+  } else if (layer === 'power')  visible ? powerLayer.addTo(map)   : map.removeLayer(powerLayer);
+  else if (layer === 'odot')     visible ? odotLayer.addTo(map)    : map.removeLayer(odotLayer);
+  else if (layer === 'cctv')     visible ? cctvLayer.addTo(map)    : map.removeLayer(cctvLayer);
+  else if (layer === 'dms')      visible ? dmsLayer.addTo(map)     : map.removeLayer(dmsLayer);
   localStorage.setItem(layer + 'Visible', visible ? '1' : '0');
 }
 function updateLayerTogglesFromStorage() {
