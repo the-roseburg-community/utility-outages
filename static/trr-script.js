@@ -81,10 +81,6 @@
  *      • Loads Oregon milepost locations as GeoJSON
  *      • Only renders labels at high zoom, within current map bounds, and if toggled on
  *      • Uses a debounce for fast, smooth user interaction
- *  - UI/UX
- *      • Supports mobile/responsive layout
- *      • Remembers legend tabs, <details> panel state, and layer toggles
- *      • Hides or shows map layers and legends based on user actions and saved settings
  *
  *  DEPENDENCIES:
  *  -------------
@@ -140,31 +136,39 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   attribution: 'Map data © OpenStreetMap contributors'
 }).addTo(map);
 
-let lastOpenedLatLng = null;
-let popupManuallyClosed = false;
-let programmaticClose = false;
+// ---------------------------------------------------------------------------------
+// Robust popup persistence across refreshes
+// ---------------------------------------------------------------------------------
+let closeGuard = 0; // refcount to suppress treating programmatic closes as manual
+function beginGuard() { closeGuard++; }
+function endGuard() { setTimeout(() => { closeGuard = Math.max(0, closeGuard - 1); }, 0); }
+function isGuarded() { return closeGuard > 0; }
 
-// ---- MANUALLY CLOSED POPUPS STATE ----
-const manuallyClosedPopups = new Set();
-function markerPopupKey(marker, id) {
-  const latlng = marker.getLatLng();
-  return `${id || ''}|${latlng.lat.toFixed(5)},${latlng.lng.toFixed(5)}`;
-}
+let currentOpen = null; // { layer: 'power'|'odot'|'cctv'|'dms', key: string }
+const userClosedKeys = new Set(); // stores `${layer}|${key}` for user-closed popups
 
-map.on('popupclose', function(e) {
-  if (programmaticClose) {
-    // This close event was triggered by our code, NOT the user.
-    programmaticClose = false;
-    return;
+map.on('popupopen', (e) => {
+  const src = e.popup && e.popup._source;
+  if (!src || !src.options) return;
+  const key = src.options.popupKey;
+  const layerType = src.options.layerType;
+  if (key && layerType) {
+    currentOpen = { layer: layerType, key };
+    userClosedKeys.delete(`${layerType}|${key}`); // reopening clears the "closed" marker
   }
-  if (
-    lastOpenedLatLng &&
-    e.popup._latlng &&
-    Math.abs(e.popup._latlng.lat - lastOpenedLatLng.lat) < 0.0001 &&
-    Math.abs(e.popup._latlng.lng - lastOpenedLatLng.lng) < 0.0001
-  ) {
-    popupManuallyClosed = true;
-    lastOpenedLatLng = null;
+});
+
+map.on('popupclose', (e) => {
+  if (isGuarded()) return; // ignore programmatic closes during refreshes
+  const src = e.popup && e.popup._source;
+  if (!src || !src.options) return;
+  const key = src.options.popupKey;
+  const layerType = src.options.layerType;
+  if (key && layerType) {
+    userClosedKeys.add(`${layerType}|${key}`);
+    if (currentOpen && currentOpen.layer === layerType && currentOpen.key === key) {
+      currentOpen = null;
+    }
   }
 });
 
@@ -309,14 +313,9 @@ function pointInCounty(lat, lon, county) {
 // ---- OUTAGE DATA ----
 function fetchOutages() {
   Object.keys(totals).forEach(cty => Object.keys(totals[cty]).forEach(u => totals[cty][u] = 0));
-  let openPopup = map._popup;
-  let openLatLng = null;
-  let openId = null;
-  if (openPopup && openPopup._source && openPopup._source.getLatLng) {
-    openLatLng = openPopup._source.getLatLng();
-    openId = openPopup._source.options && openPopup._source.options.outageId;
-  }
-  let lastOpenedMarker = null;
+
+  let markersByKey = new Map();
+
   Promise.all([
     fetch('/outages').then(r => r.json()),
     fetch('/dec-outages').then(r => r.json()),
@@ -328,9 +327,10 @@ function fetchOutages() {
     // Pacific Power
     (pacificData[0]?.outages || []).forEach(o => {
       if (!o.latitude || !o.longitude) return;
+      const popupKey = o.id || `${o.latitude},${o.longitude}`;
       const marker = L.circleMarker([o.latitude, o.longitude], {
         radius: 8, fillColor: '#007bff', color: '#000', weight: 1, opacity: 1, fillOpacity: 0.85,
-        outageId: o.id || `${o.latitude},${o.longitude}`
+        outageId: popupKey, popupKey, layerType: 'power'
       }).bindPopup(`
         <strong>ZIP:</strong> ${o.zip}<br/>
         <strong>Impacted Meters:</strong> ${o.custOut}<br/>
@@ -341,28 +341,22 @@ function fetchOutages() {
         <strong>Utility:</strong> <a href="https://www.pacificpower.net/outages-safety.html">Pacific Power</a>
       `);
       markerList.push(marker);
-      // Popup prevention logic
-      if (
-        openLatLng && Math.abs(o.latitude - openLatLng.lat) < 0.0001 && Math.abs(o.longitude - openLatLng.lng) < 0.0001 &&
-        !manuallyClosedPopups.has(markerPopupKey(marker, marker.options.outageId))
-      ) {
-        lastOpenedMarker = marker;
-        lastOpenedLatLng = openLatLng;
-      }
+      markersByKey.set(popupKey, marker);
+
       ['douglas','jackson','josephine','klamath','coos'].forEach(cty => {
         if (pointInCounty(o.latitude, o.longitude, cty)) {
           totals[cty].pacific += Number(o.custOut) || 0;
         }
       });
-      marker.on('popupclose', () => {
-        manuallyClosedPopups.add(markerPopupKey(marker, marker.options.outageId));
-      });
     });
+
+    // Douglas Electric
     decData.forEach(o => {
       if (!o.latitude || !o.longitude) return;
+      const popupKey = o.id || `${o.latitude},${o.longitude}`;
       const marker = L.circleMarker([o.latitude, o.longitude], {
         radius: 8, fillColor: '#ffa500', color: '#000', weight: 1, opacity: 1, fillOpacity: 0.85,
-        outageId: o.id || `${o.latitude},${o.longitude}`
+        outageId: popupKey, popupKey, layerType: 'power'
       }).bindPopup(`
         <strong>Impacted Meters:</strong> ${o.custOut}<br/>
         <strong>Status:</strong> ${o.planned ? 'Planned' : 'Unplanned'}<br/>
@@ -370,25 +364,20 @@ function fetchOutages() {
         <strong>Utility:</strong> <a href="https://douglaselectric.outagemap.coop/">Douglas Electric</a>
       `);
       markerList.push(marker);
-      if (
-        openLatLng && Math.abs(o.latitude - openLatLng.lat) < 0.0001 && Math.abs(o.longitude - openLatLng.lng) < 0.0001 &&
-        !manuallyClosedPopups.has(markerPopupKey(marker, marker.options.outageId))
-      ) {
-        lastOpenedMarker = marker;
-        lastOpenedLatLng = openLatLng;
-      }
+      markersByKey.set(popupKey, marker);
+
       if (pointInCounty(o.latitude, o.longitude, 'douglas')) {
         totals.douglas.dec += Number(o.custOut) || 0;
       }
-      marker.on('popupclose', () => {
-        manuallyClosedPopups.add(markerPopupKey(marker, marker.options.outageId));
-      });
     });
+
+    // CLPUD
     clpudData.forEach(o => {
       if (!o.latitude || !o.longitude) return;
+      const popupKey = o.id || `${o.latitude},${o.longitude}`;
       const marker = L.circleMarker([o.latitude, o.longitude], {
         radius: 8, fillColor: '#AA40FF', color: '#000', weight: 1, opacity: 1, fillOpacity: 0.85,
-        outageId: o.id || `${o.latitude},${o.longitude}`
+        outageId: popupKey, popupKey, layerType: 'power'
       }).bindPopup(`
         <strong>Impacted Meters:</strong> ${o.custOut}<br/>
         <strong>Status:</strong> ${o.planned ? 'Planned' : 'Unplanned'}<br/>
@@ -396,27 +385,23 @@ function fetchOutages() {
         <strong>Utility:</strong> <a href="https://clpud.org/customer-information/outages/outage-map/">Central Lincoln PUD</a>
       `);
       markerList.push(marker);
-      if (
-        openLatLng && Math.abs(o.latitude - openLatLng.lat) < 0.0001 && Math.abs(o.longitude - openLatLng.lng) < 0.0001 &&
-        !manuallyClosedPopups.has(markerPopupKey(marker, marker.options.outageId))
-      ) {
-        lastOpenedMarker = marker;
-      }
+      markersByKey.set(popupKey, marker);
+
       if (pointInCounty(o.latitude, o.longitude, 'douglas')) {
         totals.douglas.clpud += Number(o.custOut) || 0;
       }
       if (pointInCounty(o.latitude, o.longitude, 'coos')) {
         totals.coos.clpud += Number(o.custOut) || 0;
       }
-      marker.on('popupclose', () => {
-        manuallyClosedPopups.add(markerPopupKey(marker, marker.options.outageId));
-      });
     });
+
+    // Coos-Curry Electric
     cceData.forEach(o => {
       if (!o.latitude || !o.longitude) return;
+      const popupKey = o.id || `${o.latitude},${o.longitude}`;
       const marker = L.circleMarker([o.latitude, o.longitude], {
         radius: 8, fillColor: '#e74c3c', color: '#000', weight: 1, opacity: 1, fillOpacity: 0.85,
-        outageId: o.id || `${o.latitude},${o.longitude}`
+        outageId: popupKey, popupKey, layerType: 'power'
       }).bindPopup(`
         <strong>Case Number:</strong> ${o.id}<br/>
         <strong>Impacted Meters:</strong> ${o.custOut}<br/>
@@ -429,28 +414,27 @@ function fetchOutages() {
         <strong>Utility:</strong> <a href="https://outagemap.cooscurryelectric.com/" target="_blank">Coos-Curry Electric Cooperative</a>
       `);
       markerList.push(marker);
-      if (
-        openLatLng && Math.abs(o.latitude - openLatLng.lat) < 0.0001 && Math.abs(o.longitude - openLatLng.lng) < 0.0001 &&
-        !manuallyClosedPopups.has(markerPopupKey(marker, marker.options.outageId))
-      ) {
-        lastOpenedMarker = marker;
-      }
+      markersByKey.set(popupKey, marker);
+
       if (pointInCounty(o.latitude, o.longitude, 'coos')) {
         totals.coos.cce += Number(o.custOut) || 0;
       }
-      marker.on('popupclose', () => {
-        manuallyClosedPopups.add(markerPopupKey(marker, marker.options.outageId));
-      });
     });
+
     updateTotalsDisplay();
-    programmaticClose = true;
+
+    beginGuard();
     powerLayer.clearLayers();
     markerList.forEach(m => powerLayer.addLayer(m));
-    if (lastOpenedMarker && !popupManuallyClosed) {
-      setTimeout(() => lastOpenedMarker.openPopup(), 10);
-    } else {
-      lastOpenedLatLng = null;
+
+    // Reopen previously open popup for this layer if user didn't close it
+    if (currentOpen && currentOpen.layer === 'power' &&
+        !userClosedKeys.has(`power|${currentOpen.key}`)) {
+      const m = markersByKey.get(currentOpen.key);
+      if (m) setTimeout(() => m.openPopup(), 0);
     }
+
+    endGuard();
   }).catch(console.error);
 }
 
@@ -476,21 +460,21 @@ function fetchOdotIncidents() {
   fetch('/odot-incidents')
     .then(r => r.json())
     .then(data => {
-      const openPopup = map._popup;
-      const openId    = openPopup
-        ? openPopup._source.options.incidentId
-        : null;
-      const openLatLng = openPopup && openPopup._source && openPopup._source.getLatLng ? openPopup._source.getLatLng() : null;
+      const markersByKey = new Map();
+
+      beginGuard();
       odotLayer.clearLayers();
+
       (data.incidents || []).forEach(inc => {
         if (inc['is-active'] !== 'true') return;
         const loc = inc.location['start-location'];
         if (!loc?.['start-lat'] || !loc?.['start-long']) return;
         const lat = loc['start-lat'];
         const lon = loc['start-long'];
+        const popupKey = inc['incident-id'];
         const marker = L.marker([lat, lon], {
           icon: getIconForIncident(inc),
-          incidentId: inc['incident-id']
+          incidentId: popupKey, popupKey, layerType: 'odot'
         });
         const startMP  = loc['start-milepost'] ?? 'N/A';
         const endMP    = inc.location['end-location']?.['end-milepost'];
@@ -508,25 +492,28 @@ function fetchOdotIncidents() {
         `;
         marker.bindPopup(popup);
         odotLayer.addLayer(marker);
-        // Popup prevention logic
-        if (
-          openId && inc['incident-id'] === openId &&
-          openLatLng && Math.abs(lat - openLatLng.lat) < 0.0001 && Math.abs(lon - openLatLng.lng) < 0.0001 &&
-          !manuallyClosedPopups.has(markerPopupKey(marker, inc['incident-id']))
-        ) {
-          marker.openPopup();
-        }
-        marker.on('popupclose', () => {
-          manuallyClosedPopups.add(markerPopupKey(marker, inc['incident-id']));
-        });
+        markersByKey.set(popupKey, marker);
       });
+
+      // Reopen if this was the open ODOT popup
+      if (currentOpen && currentOpen.layer === 'odot' &&
+          !userClosedKeys.has(`odot|${currentOpen.key}`)) {
+        const m = markersByKey.get(currentOpen.key);
+        if (m) setTimeout(() => m.openPopup(), 0);
+      }
+
+      endGuard();
     })
     .catch(console.error);
 }
 
 // ---- ODOT CAMERAS ----
 function fetchCameras() {
+  const markersByKey = new Map();
+
+  beginGuard();
   cctvLayer.clearLayers();
+
   fetch('/odot-cctv')
     .then(r => r.json())
     .then(data => {
@@ -542,7 +529,11 @@ function fetchCameras() {
           iconSize: [38, 38],
           iconAnchor: [19, 19]
         });
-        const marker = L.marker([cam.latitude, cam.longitude], { icon: cameraIcon });
+        const popupKey = cam['device-id'] || cam['device-name'];
+        const marker = L.marker([cam.latitude, cam.longitude], {
+          icon: cameraIcon,
+          deviceId: popupKey, popupKey, layerType: 'cctv'
+        });
         marker.bindPopup(`
           <div style="max-width:340px;">
             <strong>${cam['device-name']}</strong><br/>
@@ -554,7 +545,17 @@ function fetchCameras() {
           </div>
         `, { maxWidth: 340 });
         cctvLayer.addLayer(marker);
+        markersByKey.set(popupKey, marker);
       });
+
+      // Reopen if this was the open CCTV popup
+      if (currentOpen && currentOpen.layer === 'cctv' &&
+          !userClosedKeys.has(`cctv|${currentOpen.key}`)) {
+        const m = markersByKey.get(currentOpen.key);
+        if (m) setTimeout(() => m.openPopup(), 0);
+      }
+
+      endGuard();
     })
     .catch(console.error);
 }
@@ -634,19 +635,19 @@ function formatDmsReaderBoard(st) {
   return `<div class="dms-board">${rendered}</div>`;
 }
 function fetchDmsLayer() {
-  let openPopup = map._popup;
-  let openDmsId = null;
-  let openLatLng = null;
-  if (openPopup && openPopup._source && openPopup._source.options && openPopup._source.options.dmsId) {
-    openDmsId = openPopup._source.options.dmsId;
-    openLatLng = openPopup._source.getLatLng();
-  }
+  const markersByKey = new Map();
+
   Promise.all([
     fetch('/odot-dms-inventory').then(r => r.json()),
     fetch('/odot-dms-status').then(r => r.json())
   ]).then(([inventory, status]) => {
+    beginGuard();
     dmsLayer.clearLayers();
-    if (!inventory["dms-inventory-items"] || !status["dmsItems"]) return;
+
+    if (!inventory["dms-inventory-items"] || !status["dmsItems"]) {
+      endGuard();
+      return;
+    }
     const statusMap = {};
     status["dmsItems"].forEach(d => statusMap[d["device-id"]] = d);
     inventory["dms-inventory-items"].forEach(sign => {
@@ -677,21 +678,20 @@ function fetchDmsLayer() {
       }
       const marker = L.marker([sign.latitude, sign.longitude], {
         icon: dmsIcon(isOn),
-        dmsId: sid
+        dmsId: sid, popupKey: sid, layerType: 'dms'
       }).bindPopup(popup, {maxWidth: 340});
       dmsLayer.addLayer(marker);
-      // Popup prevention logic
-      if (
-        openDmsId && sid === openDmsId &&
-        openLatLng && Math.abs(sign.latitude - openLatLng.lat) < 0.0001 && Math.abs(sign.longitude - openLatLng.lng) < 0.0001 &&
-        !manuallyClosedPopups.has(markerPopupKey(marker, sid))
-      ) {
-        marker.openPopup();
-      }
-      marker.on('popupclose', () => {
-        manuallyClosedPopups.add(markerPopupKey(marker, sid));
-      });
+      markersByKey.set(sid, marker);
     });
+
+    // Reopen if this was the open DMS popup
+    if (currentOpen && currentOpen.layer === 'dms' &&
+        !userClosedKeys.has(`dms|${currentOpen.key}`)) {
+      const m = markersByKey.get(currentOpen.key);
+      if (m) setTimeout(() => m.openPopup(), 0);
+    }
+
+    endGuard();
   }).catch(console.error);
 }
 
@@ -799,7 +799,7 @@ fetch('/static/mileposts.geojson')
         coords[1].toFixed(6),
         p.MP !== undefined ? p.MP : (p.MILEPOST || p.milepost || p.MILE || '')
       ].join('|');
-      if (seen.has(key)) return false;
+    if (seen.has(key)) return false;
       seen.add(key);
       return true;
     });
