@@ -81,6 +81,10 @@
  *      • Loads Oregon milepost locations as GeoJSON
  *      • Only renders labels at high zoom, within current map bounds, and if toggled on
  *      • Uses a debounce for fast, smooth user interaction
+ *  - UI/UX
+ *      • Supports mobile/responsive layout
+ *      • Remembers legend tabs, <details> panel state, and layer toggles
+ *      • Hides or shows map layers and legends based on user actions and saved settings
  *
  *  DEPENDENCIES:
  *  -------------
