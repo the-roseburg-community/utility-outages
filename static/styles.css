@@ -50,7 +50,7 @@ html, body {
 body {
   display: flex;
   flex-direction: column;
-  font-family: system-ui, sans-serif;
+  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", sans-serif;
   background-color: #f4f4f4;
 }
 
@@ -59,6 +59,7 @@ body {
 ------------------------------------------------------------------------ */
 
 #map {
+  position: relative; /* so overlay controls anchor to the map, not the page */
   flex: 1;
   width: 100%;
 }
@@ -354,5 +355,448 @@ details[open] summary::before { transform: rotate(90deg); }
 #layers-panel label { cursor:pointer; font-size:16px; }
 #layers-panel input[type="checkbox"] { margin-right: 7px; }
 #layers-button button:focus { outline: 2px solid #7ea253; }
+
+/* ------------------------------------------------------------------------
+   Pro header layout: logo left (flush), centered text, optional right slot
+   (Overrides placed after your original header styles; nothing removed)
+------------------------------------------------------------------------ */
+
+.site-header {
+  background-color: #7ea253;
+  /* Uncomment to keep the header visible while scrolling
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  */
+}
+
+/* Full-width professional bar with precise centering */
+.site-header .header-inner {
+  width: 100%;
+  margin: 0 auto;
+  padding: 10px 16px;
+  min-height: 64px;
+  position: relative;                /* allows absolute centering of title */
+  display: flex;
+  align-items: center;
+}
+
+/* Brand flush-left */
+.site-header .brand {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  text-decoration: none;
+}
+.site-header .logo  {
+  height: 40px;
+  width: auto;
+  display: block;
+}
+
+/* Center title truly centered regardless of left/right content width */
+.site-header .header-text {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  text-align: center;
+  line-height: 1.15;
+}
+.site-header .site-title {
+  color: #fff;
+  font-size: 1.28rem;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  margin-bottom: 2px;
+}
+.site-header .site-subtitle {
+  color: #e0f4d9;
+  font-size: 1rem;
+  margin-bottom: 4px;
+}
+.site-header .site-link a {
+  color: #cce8c1;
+  font-size: 0.95rem;
+  text-decoration: none;
+}
+.site-header .site-link a:hover { text-decoration: underline; }
+
+/* Reserve space on the right if you add a CTA later */
+.site-header .header-right {
+  margin-left: auto;
+  min-width: 40px;
+}
+
+/* Optional CTA style */
+.site-header .btn {
+  appearance: none;
+  border: 0;
+  border-radius: 8px;
+  padding: 8px 12px;
+  background: #ffffff;
+  color: #2f5d17;
+  font-weight: 600;
+  box-shadow: 0 2px 6px #0002;
+  cursor: pointer;
+}
+.site-header .btn:focus { outline: 2px solid #2f5d17; }
+
+/* -------------------------
+   Responsive behavior
+-------------------------- */
+@media (max-width: 720px) {
+  .site-header .header-inner {
+    padding: 10px 12px;
+    min-height: unset;
+  }
+  /* Stack and center on mobile to avoid overlap */
+  .site-header .header-text {
+    position: static;
+    transform: none;
+    width: 100%;
+    margin-top: 6px;
+  }
+  .site-header .brand {
+    width: 100%;
+    justify-content: center;   /* center the logo on small screens */
+  }
+  .site-header .logo { height: 34px; }
+  .site-header .site-title { font-size: 1.18rem; }
+  .site-header .site-link a { font-size: 0.9rem; }
+  .site-header .header-right { display: none; }
+}
+
+/* ------------------------------------------------------------------------
+   Map overlay controls (Layers button + panel) anchored to the map
+------------------------------------------------------------------------ */
+
+/* Place the Layers button bottom-left; panel pops UP to avoid the legend */
+#layers-button {
+  position: absolute;
+  left: 16px;
+  bottom: 16px;   /* anchor to bottom-left of the map */
+  right: auto;
+  top: auto;
+  z-index: 1001;
+}
+
+.layers-btn {
+  background:#fff;
+  border-radius:8px;
+  border:none;
+  box-shadow:0 2px 7px #0002;
+  padding:7px 12px;
+  display:flex;
+  align-items:center;
+  gap:7px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.layers-btn:hover { box-shadow: 0 3px 10px #0003; }
+
+#layers-panel {
+  display:none;        /* JS toggles this */
+  position: absolute;
+  left:16px;           /* align with the button */
+  bottom: 58px;        /* POP UP above the button */
+  right: auto;
+  top: auto;
+  z-index:1002;
+  background:#fff;
+  border-radius:12px;
+  box-shadow:0 4px 16px #0002;
+  padding:14px 24px;
+  min-width:170px;
+
+  /* prevent off-screen on short viewports */
+  max-height: calc(100vh - 160px);
+  overflow-y: auto;
+}
+
+#layers-panel label {
+  display:block;
+  margin-bottom:10px;
+}
+
+/* ===========================
+   1) Business-professional header text (extra polish)
+   =========================== */
+.site-header .header-text {
+  line-height: 1.2;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.site-header .site-title {
+  font-weight: 600;          /* firm but not shouty */
+  font-size: 1.25rem;        /* ~20px, reads well on desktop */
+  letter-spacing: 0.1px;     /* tiny positive tracking for clarity */
+  margin: 0 8px 2px;         /* subtle breathing room */
+}
+
+.site-header .site-link a {
+  font-size: 0.94rem;        /* slightly smaller than title */
+  font-weight: 500;
+  opacity: 0.95;             /* softer than title */
+  text-decoration: none;
+}
+.site-header .site-link a:hover {
+  text-decoration: underline;
+  opacity: 1;
+}
+
+/* ===========================
+   2) Mobile spacing for bottom-left layers
+   =========================== */
+@media (max-width: 600px) {
+  #layers-button { left: 12px; bottom: 12px; }
+  #layers-panel  { left: 12px; bottom: 54px; }
+  .site-header .site-title { font-size: 1.15rem; }
+  .site-header .site-link a { font-size: 0.9rem; }
+}
+
+/* Crosshair cursor when Pin mode is ON */
+#map.map-pin-mode .leaflet-container,
+#map.map-pin-mode .leaflet-container.leaflet-grab,
+#map.map-pin-mode .leaflet-container.leaflet-dragging,
+#map.map-pin-mode .leaflet-pane,
+#map.map-pin-mode .leaflet-overlay-pane,
+#map.map-pin-mode .leaflet-tile-pane {
+  cursor: crosshair !important;
+}
+
+/* Keep normal/pointer cursor over UI controls */
+#map.map-pin-mode .leaflet-control,
+#map.map-pin-mode #layers-button,
+#map.map-pin-mode #layers-panel,
+#map.map-pin-mode #pins-menu {
+  cursor: auto !important;
+}
+#map.map-pin-mode .leaflet-control a {
+  cursor: pointer !important;
+}
+
+/* ======================================================================
+   QUICK FIX OVERRIDES — placed at the very end to ensure they win
+   - Forces Layers button/panel to bottom-left (overriding inline styles)
+   - Makes current <header> layout professional (logo left, title centered)
+   - Corrects crosshair cursor when pin mode is active
+   ====================================================================== */
+
+/* --- Header: professional layout with your existing <header> markup --- */
+header {
+  position: relative !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important; /* centers the text block */
+  background-color: #7ea253;
+}
+
+header .logo {
+  position: absolute !important;
+  left: 16px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  margin: 0 !important;
+  height: 40px !important;
+  width: auto !important;
+}
+
+.header-text {
+  text-align: center !important;
+  line-height: 1.2 !important;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+.header-text .site-title {
+  color: #fff !important;
+  font-weight: 600 !important;
+  font-size: 1.25rem !important;
+  letter-spacing: 0.1px !important;
+  margin: 0 8px 2px !important;
+}
+.header-text .site-subtitle {
+  color: #e0f4d9 !important;
+}
+.header-text .site-link a {
+  color: #cce8c1 !important;
+  font-weight: 500 !important;
+  opacity: 0.95;
+  text-decoration: none;
+}
+.header-text .site-link a:hover {
+  text-decoration: underline;
+  opacity: 1;
+}
+
+@media (max-width: 720px) {
+  header {
+    flex-direction: column !important;
+    padding-top: 10px !important;
+    padding-bottom: 10px !important;
+  }
+  header .logo {
+    position: static !important;
+    transform: none !important;
+    margin: 0 auto 6px !important;
+    height: 34px !important;
+  }
+  .header-text .site-title { font-size: 1.15rem !important; }
+  .header-text .site-link a { font-size: 0.9rem !important; }
+}
+
+/* --- Layers button & panel: force bottom-left despite inline styles --- */
+#layers-button {
+  position: absolute !important;
+  left: 16px !important;
+  bottom: 16px !important;
+  top: auto !important;
+  right: auto !important;
+  z-index: 1001 !important;
+}
+#layers-panel {
+  position: absolute !important;
+  left: 16px !important;
+  bottom: 58px !important;  /* pop UP above button */
+  top: auto !important;
+  right: auto !important;
+  display: none;            /* JS toggles this */
+  z-index: 1002 !important;
+  max-height: calc(100vh - 160px);
+  overflow-y: auto;
+}
+
+/* Pins menu: keep it just above Layers panel by default */
+#pins-menu {
+  position: absolute !important;
+  left: 16px !important;
+  bottom: 58px !important;
+  z-index: 1003 !important;
+}
+
+@media (max-width: 600px) {
+  #layers-button { left: 12px !important; bottom: 12px !important; }
+  #layers-panel  { left: 12px !important; bottom: 54px !important; }
+  #pins-menu     { left: 12px !important; bottom: 54px !important; }
+}
+
+/* --- Crosshair when Pin mode is ON (correct element targeting) --- */
+#map.map-pin-mode,
+#map.map-pin-mode.leaflet-container,
+#map.map-pin-mode.leaflet-grab,
+#map.map-pin-mode.leaflet-dragging {
+  cursor: crosshair !important;
+}
+#map.map-pin-mode .leaflet-control,
+#map.map-pin-mode #layers-button,
+#map.map-pin-mode #layers-panel,
+#map.map-pin-mode #pins-menu {
+  cursor: auto !important;
+}
+#map.map-pin-mode .leaflet-control a {
+  cursor: pointer !important;
+}
+
+/* Force crosshair over interactive vectors (e.g., county polygons) in pin mode */
+#map.map-pin-mode .leaflet-interactive {
+  cursor: crosshair !important;
+}
+
+/* Keep normal/pointer over UI controls while in pin mode (unchanged) */
+#map.map-pin-mode .leaflet-control,
+#map.map-pin-mode #layers-button,
+#map.map-pin-mode #layers-panel,
+#map.map-pin-mode #pins-menu {
+  cursor: auto !important;
+}
+#map.map-pin-mode .leaflet-control a {
+  cursor: pointer !important;
+}
+
+/* Mobile: stack the brand logo above the title */
+@media (max-width: 720px) {
+  /* If you're using the enhanced header */
+  .site-header .header-inner {
+    display: flex;
+    flex-direction: column;   /* stack logo then text */
+    align-items: center;
+    padding: 10px 12px;
+  }
+  .site-header .brand {
+    justify-content: center;
+    margin-bottom: 6px;
+  }
+  .site-header .logo { height: 42px; }
+  .site-header .header-text {
+    position: static;         /* undo absolute centering on mobile */
+    transform: none;
+    text-align: center;
+    margin-top: 0;
+  }
+
+  /* Fallback for the simple <header> structure */
+  header {
+    display: flex;
+    flex-direction: column;   /* stack logo then text */
+    align-items: center;
+  }
+  header .logo {
+    margin: 0 auto 6px;
+    height: 42px;
+  }
+  .header-text {
+    text-align: center;
+    margin-top: 0;
+  }
+}
+
+/* ===== Mobile-safe, collision-free overlay stacking (bottom-left) ===== */
+#pins-menu{
+  position:absolute !important;
+  left:16px !important;
+  right:auto !important;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 16px) !important;
+  z-index: 1090 !important;              /* below Layers button + panel */
+  pointer-events: auto !important;
+}
+
+#layers-button{
+  position:absolute !important;
+  left:16px !important;
+  right:auto !important;
+  top:auto !important;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 86px) !important; /* above pins */
+  z-index: 1100 !important;              /* above pins, below panel */
+  pointer-events: auto !important;
+}
+
+#layers-panel{
+  position:absolute !important;
+  left:16px !important;
+  right:auto !important;
+  top:auto !important;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 144px) !important; /* pops UP */
+  z-index: 1200 !important;              /* topmost of the three */
+  max-height: calc(100vh - 160px);
+  overflow-y: auto;
+}
+
+/* Make the clickable area feel snappy on mobile */
+#layers-button .layers-btn { touch-action: manipulation; }
+
+/* Extra small screens */
+@media (max-width: 600px){
+  #pins-menu     { left:12px !important; bottom: calc(env(safe-area-inset-bottom,0px) + 12px) !important; }
+  #layers-button { left:12px !important; bottom: calc(env(safe-area-inset-bottom,0px) + 78px) !important; }
+  #layers-panel  { left:12px !important; bottom: calc(env(safe-area-inset-bottom,0px) + 136px) !important; }
+}
+
+/* Make sure the panel can receive taps/clicks and is above pins */
+#layers-panel { pointer-events: auto !important; z-index: 1200 !important; }
+
+/* Help mobile Safari treat taps as clicks without delay */
+#layers-panel label,
+#layers-panel input,
+#layers-button .layers-btn { touch-action: manipulation; }
 
 

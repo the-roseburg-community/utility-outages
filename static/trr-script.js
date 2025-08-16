@@ -43,6 +43,7 @@
  *  Contact & Info: https://www.roseburgscanner.com/about/#contact-the-roseburg-receiver
  *
  * ============================================================================
+ */
  /**
  * =============================================================================
  *    The Roseburg Receiver – Outage & Incident Map (Front-End Logic)  
@@ -56,54 +57,14 @@
  *  MAJOR COMPONENTS:
  *  -----------------
  *  - Legend Toggle & Persistence
- *      • Shows/hides the map legend, remembers user preference (localStorage)
  *  - Map Initialization
- *      • Sets up Leaflet map, default center/zoom, and OSM tile layer
  *  - Popup State Logic
- *      • Remembers the last opened popup so it can be restored after refresh
- *      • Detects when user closes popups (so we don't re-open them automatically)
  *  - Layer Management
- *      • Uses Leaflet LayerGroups for power, ODOT, camera, DMS, and milepost data
- *      • Custom toggle UI for enabling/disabling each layer (with state persistence)
  *  - SVG Icon Helpers
- *      • Provides reusable SVG marker icons for incidents, power, cameras, etc.
  *  - County Polygons & Styling
- *      • Loads and styles GeoJSON county boundaries
- *      • Tracks outage totals by county/utility (and updates legend)
  *  - Outage Fetch/Render
- *      • Aggregates and displays power outage data from multiple utilities
- *      • Supports custom coordinate transforms for DEC/CLPUD proprietary formats
- *      • Automatically updates (polls) every 30 seconds
  *  - ODOT Incidents, Cameras, DMS Signs
- *      • Fetches and displays traffic events, road cams, and dynamic signs from ODOT
- *      • Each type has custom icon, popup, and update interval
  *  - Mileposts
- *      • Loads Oregon milepost locations as GeoJSON
- *      • Only renders labels at high zoom, within current map bounds, and if toggled on
- *      • Uses a debounce for fast, smooth user interaction
- *  - UI/UX
- *      • Supports mobile/responsive layout
- *      • Remembers legend tabs, <details> panel state, and layer toggles
- *      • Hides or shows map layers and legends based on user actions and saved settings
- *
- *  DEPENDENCIES:
- *  -------------
- *    - Leaflet.js
- *    - Turf.js (for point-in-polygon/county matching)
- *    - Browser localStorage for UI state
- *
- *  DATA SOURCES:
- *  -------------
- *    - Backend API endpoints (`/outages`, `/dec-outages`, `/clpud-outages`, `/cce-outages`)
- *    - ODOT incident/camera/sign endpoints proxied by Flask server
- *    - County/milepost GeoJSON static assets
- *
- *  CUSTOMIZATION POINTS:
- *  --------------------
- *    - Adjust `countyStyles` for different county/utility coloring
- *    - Edit SVG markup in `svgIcon()` and `incidentIcons` for branding
- *    - Change polling intervals for fresher/slower data
- *    - Extend with new utilities, counties, or incident types as needed
  *
  *  (c) The Roseburg Receiver Community – Open Source, GPL-3.0
  * =============================================================================
@@ -136,20 +97,41 @@ setLegendState(getInitialLegendState());
 
 // ---- MAP SETUP ----
 const map = L.map('map').setView([42.75, -122.90], 8);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+
+// Basemap layers (OSM + Satellite) with localStorage persistence
+const BASEMAP_KEY = 'trr_basemap_choice_v1';
+const osmBase = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   attribution: 'Map data © OpenStreetMap contributors'
-}).addTo(map);
+});
+const satelliteBase = L.tileLayer(
+  'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+  { attribution: 'Imagery © Esri, Maxar, Earthstar Geographics, and the GIS User Community' }
+);
+
+function getSavedBasemap() {
+  const v = localStorage.getItem(BASEMAP_KEY);
+  return v === 'sat' ? 'sat' : 'osm';
+}
+let currentBase = getSavedBasemap() === 'sat' ? satelliteBase.addTo(map) : osmBase.addTo(map);
+function setBasemap(which) {
+  const desired = which === 'sat' ? satelliteBase : osmBase;
+  if (currentBase !== desired) {
+    map.removeLayer(currentBase);
+    currentBase = desired.addTo(map);
+  }
+  localStorage.setItem(BASEMAP_KEY, which === 'sat' ? 'sat' : 'osm');
+}
 
 // ---------------------------------------------------------------------------------
 // Robust popup persistence across refreshes
 // ---------------------------------------------------------------------------------
-let closeGuard = 0; // refcount to suppress treating programmatic closes as manual
+let closeGuard = 0;
 function beginGuard() { closeGuard++; }
 function endGuard() { setTimeout(() => { closeGuard = Math.max(0, closeGuard - 1); }, 0); }
 function isGuarded() { return closeGuard > 0; }
 
-let currentOpen = null; // { layer: 'power'|'odot'|'cctv'|'dms', key: string }
-const userClosedKeys = new Set(); // stores `${layer}|${key}` for user-closed popups
+let currentOpen = null; // { layer: 'power'|'odot'|'cctv'|'dms'|'pin', key: string }
+const userClosedKeys = new Set();
 
 map.on('popupopen', (e) => {
   const src = e.popup && e.popup._source;
@@ -158,12 +140,11 @@ map.on('popupopen', (e) => {
   const layerType = src.options.layerType;
   if (key && layerType) {
     currentOpen = { layer: layerType, key };
-    userClosedKeys.delete(`${layerType}|${key}`); // reopening clears the "closed" marker
+    userClosedKeys.delete(`${layerType}|${key}`);
   }
 });
-
 map.on('popupclose', (e) => {
-  if (isGuarded()) return; // ignore programmatic closes during refreshes
+  if (isGuarded()) return;
   const src = e.popup && e.popup._source;
   if (!src || !src.options) return;
   const key = src.options.popupKey;
@@ -175,6 +156,257 @@ map.on('popupclose', (e) => {
     }
   }
 });
+
+// =========================
+// User-placed pins (Leaflet)
+// =========================
+const userPinsLayer = L.layerGroup().addTo(map);
+const PINS_KEY = 'trr_user_pins_v1';
+let pinMode = false;
+
+// Inject CSS to FORCE layout: Layers button above Pins menu (bottom-left)
+(function injectPositionCSS(){
+  if (document.getElementById('trr-positions-css')) return;
+  const s = document.createElement('style');
+  s.id = 'trr-positions-css';
+  s.textContent = `
+    /* Layers button ABOVE pins (bottom-left), panel pops UP */
+    #layers-button{
+      position:absolute !important;
+      left:16px !important;
+      right:auto !important;
+      top:auto !important;
+      bottom:86px !important;      /* button above pins */
+      z-index:1001 !important;
+    }
+    #layers-panel{
+      position:absolute !important;
+      left:16px !important;
+      right:auto !important;
+      top:auto !important;
+      bottom:144px !important;     /* panel above button (popping UP) */
+      z-index:1002 !important;     /* above pins control */
+    }
+    #pins-menu{
+      position:absolute !important;
+      left:16px !important;
+      right:auto !important;
+      bottom:16px !important;      /* pins at the very bottom-left */
+      z-index:1001 !important;
+    }
+  `;
+  document.head.appendChild(s);
+})();
+
+// Minimal CSS for pin labels (permanent tooltips above pin) + geocoder control
+(function injectPinAndGeocoderCSS(){
+  if (document.getElementById('pin-label-css')) return;
+  const s = document.createElement('style');
+  s.id = 'pin-label-css';
+  s.textContent = `
+    .leaflet-tooltip.pin-label{
+      background:rgba(255,255,255,0.95);
+      border:1px solid #e0e0e0;
+      color:#222;
+      padding:2px 6px;
+      border-radius:4px;
+      font-weight:600;
+      font-size:12px;
+      box-shadow:0 1px 4px rgba(0,0,0,0.12);
+      pointer-events:none;
+    }
+    /* Geocoder control (top-right) */
+    #geocoder-control{
+      position:absolute;
+      top:16px;
+      right:16px;
+      z-index:1003; /* above panels */
+      background:#fff;
+      border-radius:10px;
+      box-shadow:0 2px 10px rgba(0,0,0,0.15);
+      padding:8px;
+      width:min(360px, 90vw);
+    }
+    #geocoder-control .row{
+      display:flex; gap:6px; align-items:stretch;
+    }
+    #geocoder-input{
+      flex:1;
+      border:1px solid #d0d0d0;
+      border-radius:8px;
+      padding:8px 10px;
+      font-size:14px;
+      min-width:0;
+    }
+    #geocoder-search, #geocoder-clear{
+      border:none;
+      border-radius:8px;
+      padding:8px 10px;
+      font-weight:600;
+      cursor:pointer;
+      box-shadow:0 1px 3px rgba(0,0,0,0.08);
+      background:#7ea253; color:#fff;
+    }
+    #geocoder-clear{
+      background:#f1f1f1; color:#333;
+    }
+    #geocoder-results{
+      margin-top:6px;
+      max-height:240px;
+      overflow:auto;
+      border:1px solid #eee;
+      border-radius:8px;
+      display:none;
+      background:#fff;
+    }
+    .geocoder-item{
+      padding:8px 10px;
+      border-bottom:1px solid #f2f2f2;
+      cursor:pointer;
+    }
+    .geocoder-item:last-child{ border-bottom:none; }
+    .geocoder-item:hover{ background:#f7fbf4; }
+    .geocoder-empty{
+      padding:8px 10px; color:#666;
+    }
+    @media (max-width:600px){
+      #geocoder-control{ top:12px; right:12px; width:min(92vw, 380px); }
+    }
+  `;
+  document.head.appendChild(s);
+})();
+
+// Crisp red teardrop pin (SVG) + helpers
+const redPinIcon = L.divIcon({
+  html: `
+    <svg viewBox="0 0 24 36" xmlns="http://www.w3.org/2000/svg" width="26" height="38" aria-hidden="true">
+      <path d="M12 1
+               C6 1 1 6 1 12
+               c0 3 1.1 5.6 3.2 7.7L12 35
+               l7.8-15.3C21 17.7 23 15 23 12
+               C23 6 18 1 12 1z"
+            fill="#e53935" stroke="#b71c1c" stroke-width="1.5" />
+      <circle cx="12" cy="12" r="4.2" fill="#ffffff" stroke="#b71c1c" stroke-width="1"/>
+    </svg>
+  `,
+  className: "",
+  iconSize: [26, 38],
+  iconAnchor: [13, 37],
+  popupAnchor: [0, -32]
+});
+
+function escapeHtml(str=''){ return String(str).replace(/[&<>"']/g, s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s])); }
+
+function serializePins() {
+  const pins = [];
+  userPinsLayer.eachLayer(m => {
+    const { lat, lng } = m.getLatLng();
+    pins.push({ lat:+lat.toFixed(6), lng:+lng.toFixed(6), label: m.pinLabel || '' });
+  });
+  localStorage.setItem(PINS_KEY, JSON.stringify(pins));
+}
+
+function setMarkerLabel(marker, label) {
+  marker.pinLabel = (label || '').trim();
+  marker.unbindTooltip();
+  if (marker.pinLabel) {
+    marker.bindTooltip(escapeHtml(marker.pinLabel), {
+      permanent: true,
+      direction: 'top',
+      className: 'pin-label',
+      offset: [0, -46] // label clearly ABOVE the pin
+    });
+  }
+  serializePins();
+}
+
+function addUserPin(latlng, open = true) {
+  const id = `pin:${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+  const marker = L.marker(latlng, {
+    draggable: true,
+    autoPan: true,
+    riseOnHover: true,
+    title: 'Custom pin',
+    layerType: 'pin',
+    popupKey: id,
+    icon: redPinIcon
+  }).bindPopup(() => {
+    const { lat, lng } = marker.getLatLng();
+    const pretty = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+    const safeName = escapeHtml(marker.pinLabel || '');
+    return `
+      <div class="pin-popup" style="min-width:220px;">
+        <strong>Custom Pin</strong>${marker.pinLabel ? `<div><em>${safeName}</em></div>` : '' }
+        <div><code>${pretty}</code></div>
+        <div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:6px;">
+          <input type="text" class="pin-name" placeholder="Name (optional)" value="${safeName}"
+                 style="padding:4px 6px; border:1px solid #ccc; border-radius:6px; min-width:160px;">
+          <button type="button" class="pin-save">Save name</button>
+          <button type="button" class="pin-copy">Copy coords</button>
+          <button type="button" class="pin-delete">Remove pin</button>
+        </div>
+      </div>`;
+  });
+
+  marker.on('dragend', serializePins);
+
+  marker.on('popupopen', (e) => {
+    const el = e.popup.getElement();
+    const copyBtn  = el.querySelector('.pin-copy');
+    const delBtn   = el.querySelector('.pin-delete');
+    const saveBtn  = el.querySelector('.pin-save');
+    const nameInput= el.querySelector('.pin-name');
+
+    copyBtn?.addEventListener('click', async () => {
+      const { lat, lng } = marker.getLatLng();
+      try {
+        await navigator.clipboard.writeText(`${lat.toFixed(6)}, ${lng.toFixed(6)}`);
+        copyBtn.textContent = 'Copied!';
+        setTimeout(() => (copyBtn.textContent = 'Copy coords'), 900);
+      } catch {}
+    });
+
+    delBtn?.addEventListener('click', () => {
+      userPinsLayer.removeLayer(marker);
+      serializePins();
+    });
+
+    saveBtn?.addEventListener('click', () => {
+      setMarkerLabel(marker, nameInput?.value || '');
+      saveBtn.textContent = 'Saved';
+      setTimeout(() => (saveBtn.textContent = 'Save name'), 800);
+    });
+
+    nameInput?.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Enter') {
+        ev.preventDefault();
+        saveBtn?.click();
+      }
+    });
+  });
+
+  userPinsLayer.addLayer(marker);
+  serializePins();
+  if (open) setTimeout(() => marker.openPopup(), 0);
+  return marker;
+}
+
+function loadPins() {
+  try {
+    const raw = localStorage.getItem(PINS_KEY);
+    if (!raw) return;
+    const arr = JSON.parse(raw);
+    arr.forEach(item => {
+      if (Array.isArray(item)) {
+        addUserPin({ lat: item[0], lng: item[1] }, false);
+      } else if (item && typeof item === 'object' && 'lat' in item && 'lng' in item) {
+        const m = addUserPin({ lat: item.lat, lng: item.lng }, false);
+        if (item.label) setMarkerLabel(m, item.label);
+      }
+    });
+  } catch {}
+}
+loadPins();
 
 // ---- LayerGroups for toggling ----
 let powerLayer = L.layerGroup();
@@ -246,7 +478,7 @@ function getIconForIncident(inc) {
   const hl   = (inc.headline || '').toLowerCase();
   if (hl.includes('closed'))                                return incidentIcons.closed;
   if (hl.includes('crash'))                                 return incidentIcons.crash;
-  if (inc['event-type-id'].includes("RW")) return incidentIcons.cone;
+  if ((inc['event-type-id'] || '').includes("RW"))          return incidentIcons.cone;
   if (hl.includes('disabled') || hl.includes('obstruction') || hl.includes('hazard')) return incidentIcons.default;
   if (desc.includes('No to Minimum Delay') || desc.includes('Informational Only')) return incidentIcons.noDelay;
   if (desc.includes('Estimated delay under 20 minutes'))    return incidentIcons.minorDelay;
@@ -431,7 +663,6 @@ function fetchOutages() {
     powerLayer.clearLayers();
     markerList.forEach(m => powerLayer.addLayer(m));
 
-    // Reopen previously open popup for this layer if user didn't close it
     if (currentOpen && currentOpen.layer === 'power' &&
         !userClosedKeys.has(`power|${currentOpen.key}`)) {
       const m = markersByKey.get(currentOpen.key);
@@ -499,7 +730,6 @@ function fetchOdotIncidents() {
         markersByKey.set(popupKey, marker);
       });
 
-      // Reopen if this was the open ODOT popup
       if (currentOpen && currentOpen.layer === 'odot' &&
           !userClosedKeys.has(`odot|${currentOpen.key}`)) {
         const m = markersByKey.get(currentOpen.key);
@@ -541,7 +771,7 @@ function fetchCameras() {
         marker.bindPopup(`
           <div style="max-width:340px;">
             <strong>${cam['device-name']}</strong><br/>
-            <img src="${cam['cctv-url'].replace(/^http:/, 'https:')}"
+            <img src="${(cam['cctv-url']||'').replace(/^http:/, 'https:')}"
                 alt="Camera image"
                 style="width:320px; height:auto; border:2px solid #7ea253; display:block; margin:6px auto;" />
             <em>${cam['cctv-other'] || ''}</em><br/>
@@ -552,7 +782,6 @@ function fetchCameras() {
         markersByKey.set(popupKey, marker);
       });
 
-      // Reopen if this was the open CCTV popup
       if (currentOpen && currentOpen.layer === 'cctv' &&
           !userClosedKeys.has(`cctv|${currentOpen.key}`)) {
         const m = markersByKey.get(currentOpen.key);
@@ -688,7 +917,6 @@ function fetchDmsLayer() {
       markersByKey.set(sid, marker);
     });
 
-    // Reopen if this was the open DMS popup
     if (currentOpen && currentOpen.layer === 'dms' &&
         !userClosedKeys.has(`dms|${currentOpen.key}`)) {
       const m = markersByKey.get(currentOpen.key);
@@ -741,15 +969,11 @@ function updateMilepostsLayer() {
   if (map.getZoom() < 13) return;
   const bounds = map.getBounds();
   const placed = {};
-  // We need an offset because there are duplicate mileposts from the ODOT data.
-  // Instead, get the first one and remove the one nearest it if its 1/8 of a mile
-  // or closer.
-  const MIN_DIST_DEGREES = 0.00175; // About 1/8 mile at Oregon latitude
+  const MIN_DIST_DEGREES = 0.00175; // ~1/8 mile at Oregon latitude
   allMilepostFeatures.forEach(f => {
     const [lon, lat] = f.geometry.coordinates;
     if (!bounds.contains([lat, lon])) return;
     const props = f.properties;
-    // Label logic
     let mpLabel = '';
     if (props.MP_DISP != null && props.MP_DISP !== '' && props.MP_DISP !== undefined) {
       mpLabel = String(props.MP_DISP);
@@ -803,7 +1027,7 @@ fetch('/static/mileposts.geojson')
         coords[1].toFixed(6),
         p.MP !== undefined ? p.MP : (p.MILEPOST || p.milepost || p.MILE || '')
       ].join('|');
-    if (seen.has(key)) return false;
+      if (seen.has(key)) return false;
       seen.add(key);
       return true;
     });
@@ -862,18 +1086,68 @@ const layerToggles = {
   dms:    document.getElementById('layer-toggle-dms'),
   mileposts: document.getElementById('layer-toggle-mileposts')
 };
+
+// Stop Layers UI events from reaching the map
+(function shieldLayersUI() {
+  if (layersButton) {
+    L.DomEvent.disableClickPropagation(layersButton);
+    L.DomEvent.disableScrollPropagation(layersButton);
+    L.DomEvent.on(layersButton, 'contextmenu', L.DomEvent.stop);
+    L.DomEvent.on(layersButton, 'dblclick',   L.DomEvent.stop);
+    // IMPORTANT: no touchstart/mousedown preventDefault on the button
+  }
+
+  if (layersPanel) {
+    L.DomEvent.disableClickPropagation(layersPanel);
+    L.DomEvent.disableScrollPropagation(layersPanel);
+
+    // Only stop propagation so clicks still "work" on inputs/labels
+    ['touchstart','touchmove','touchend','pointerdown','pointerup','mousedown','mouseup','click','dblclick','contextmenu'].forEach(ev => {
+      L.DomEvent.on(layersPanel, ev, L.DomEvent.stopPropagation);
+    });
+
+    // Do NOT call L.DomEvent.stop (which prevents default) on the panel
+  }
+})();
+
+
+// Add Basemap toggle inside Layers panel
+(function injectBasemapToggle() {
+  if (!layersPanel) return;
+  const section = document.createElement('div');
+  section.style.borderTop = '1px solid #eee';
+  section.style.margin = '10px 0 0';
+  section.style.paddingTop = '8px';
+  section.innerHTML = `
+    <div style="font-weight:600;margin-bottom:6px;">Basemap</div>
+    <label style="display:block;margin-bottom:6px;">
+      <input type="radio" name="trr-basemap" id="basemap-osm" value="osm"> Standard Map
+    </label>
+    <label style="display:block;">
+      <input type="radio" name="trr-basemap" id="basemap-sat" value="sat"> Satellite (Esri)
+    </label>
+  `;
+  layersPanel.appendChild(section);
+
+  const saved = getSavedBasemap();
+  const osmRadio = section.querySelector('#basemap-osm');
+  const satRadio = section.querySelector('#basemap-sat');
+  if (saved === 'sat') satRadio.checked = true; else osmRadio.checked = true;
+
+  section.addEventListener('change', (e) => {
+    const v = (e.target && e.target.value) || 'osm';
+    setBasemap(v === 'sat' ? 'sat' : 'osm');
+  });
+})();
+
 function setLayerVisible(layer, visible) {
   if (layer === 'mileposts') {
-    if (visible) {
-      map.addLayer(milepostLayer);
-    } else {
-      map.removeLayer(milepostLayer);
-    }
+    if (visible) { map.addLayer(milepostLayer); } else { map.removeLayer(milepostLayer); }
     updateMilepostsLayer();
-  } else if (layer === 'power')  visible ? powerLayer.addTo(map)   : map.removeLayer(powerLayer);
-  else if (layer === 'odot')     visible ? odotLayer.addTo(map)    : map.removeLayer(odotLayer);
-  else if (layer === 'cctv')     visible ? cctvLayer.addTo(map)    : map.removeLayer(cctvLayer);
-  else if (layer === 'dms')      visible ? dmsLayer.addTo(map)     : map.removeLayer(dmsLayer);
+  } else if (layer === 'power')  visible ? powerLayer.addTo(map) : map.removeLayer(powerLayer);
+  else if (layer === 'odot')     visible ? odotLayer.addTo(map)  : map.removeLayer(odotLayer);
+  else if (layer === 'cctv')     visible ? cctvLayer.addTo(map)  : map.removeLayer(cctvLayer);
+  else if (layer === 'dms')      visible ? dmsLayer.addTo(map)   : map.removeLayer(dmsLayer);
   localStorage.setItem(layer + 'Visible', visible ? '1' : '0');
 }
 function updateLayerTogglesFromStorage() {
@@ -901,3 +1175,203 @@ layersButton.onclick = e => setPanel(!panelOpen);
 document.addEventListener('click', e => {
   if (!layersPanel.contains(e.target) && !layersButton.contains(e.target)) setPanel(false);
 });
+
+// -----------------------------
+// Pins menu BELOW Layers button
+// -----------------------------
+(function addPinsMenuBelowLayers() {
+  const container = map.getContainer();
+  const pinsMenu = document.createElement('div');
+  pinsMenu.id = 'pins-menu';
+  Object.assign(pinsMenu.style, {
+    position: 'absolute',
+    left: '16px',
+    bottom: '16px',
+    zIndex: 1001
+  });
+  pinsMenu.innerHTML = `
+    <div class="leaflet-bar leaflet-control pin-control" style="display:flex; gap:6px; align-items:center; padding:4px 6px; background:#fff; border-radius:8px; box-shadow:0 2px 7px #0002;">
+      <a class="pin-toggle" href="#" title="Drop a pin (then click map)" style="padding:6px 8px; font-size:16px; text-decoration:none;">📍</a>
+      <a class="pin-clear"  href="#" title="Clear all pins" style="padding:6px 8px; font-size:16px; text-decoration:none;">🗑</a>
+    </div>
+  `;
+  container.appendChild(pinsMenu);
+
+  const toggle = pinsMenu.querySelector('.pin-toggle');
+  const clear  = pinsMenu.querySelector('.pin-clear');
+
+  L.DomEvent.disableClickPropagation(pinsMenu);
+  L.DomEvent.disableScrollPropagation(pinsMenu);
+
+  function setMode(on) {
+    pinMode = on;
+    toggle.classList.toggle('active', pinMode);
+    toggle.style.outline = pinMode ? '2px solid #7ea253' : 'none';
+    map.getContainer().classList.toggle('map-pin-mode', pinMode);
+    if (pinMode) map.doubleClickZoom.disable(); else map.doubleClickZoom.enable();
+  }
+
+  toggle.addEventListener('click', (e) => { e.preventDefault(); setMode(!pinMode); });
+  clear.addEventListener('click',  (e) => { e.preventDefault(); userPinsLayer.clearLayers(); serializePins(); });
+})();
+
+// Add pin on left-click when in pin mode (guard against UI-originated clicks)
+map.on('click', (e) => {
+  if (!pinMode) return;
+  const t = e.originalEvent?.target;
+  if (t && (t.closest('#layers-button') || t.closest('#layers-panel') || t.closest('#pins-menu'))) return;
+  addUserPin(e.latlng);
+});
+
+// Quick-add on right-click even if pinMode is off
+map.on('contextmenu', (e) => {
+  const t = e.originalEvent?.target;
+  if (t && (t.closest('#layers-button') || t.closest('#layers-panel') || t.closest('#pins-menu'))) return;
+  addUserPin(e.latlng);
+});
+
+// Long-press add on touch (≈650ms)
+let _longPressTimer = null;
+map.on('touchstart', (e) => {
+  if (!e.originalEvent || e.originalEvent.touches?.length !== 1) return;
+  const t = e.originalEvent.target;
+  if (t && (t.closest('#layers-button') || t.closest('#layers-panel') || t.closest('#pins-menu'))) return;
+  const latlng = e.latlng;
+  _longPressTimer = setTimeout(() => addUserPin(latlng), 650);
+});
+map.on('touchend touchmove', () => {
+  if (_longPressTimer) { clearTimeout(_longPressTimer); _longPressTimer = null; }
+});
+
+/* ==========================================================
+   Address Search (Nominatim / OpenStreetMap) – Top Right
+   - Type an address, click Search (or press Enter)
+   - See a small result list; click one to zoom & drop a pin
+   - Pin popup opens with Name (optional) field pre-filled
+========================================================== */
+(function addGeocoderControl(){
+  const container = map.getContainer();
+
+  // Build UI
+  const gc = document.createElement('div');
+  gc.id = 'geocoder-control';
+  gc.innerHTML = `
+    <div class="row">
+      <input id="geocoder-input" type="text" placeholder="Find an address or place…" aria-label="Search address">
+      <button id="geocoder-search" type="button" title="Search">Search</button>
+      <button id="geocoder-clear"  type="button" title="Clear">Clear</button>
+    </div>
+    <div id="geocoder-results" role="listbox" aria-label="Search results"></div>
+  `;
+  container.appendChild(gc);
+
+  // Prevent map drag/zoom while interacting
+  L.DomEvent.disableClickPropagation(gc);
+  L.DomEvent.disableScrollPropagation(gc);
+
+  const input   = gc.querySelector('#geocoder-input');
+  const searchB = gc.querySelector('#geocoder-search');
+  const clearB  = gc.querySelector('#geocoder-clear');
+  const results = gc.querySelector('#geocoder-results');
+
+  // Basic helper to shorten address for label
+  function prettyLabelFromNominatim(item){
+    // Prefer house number + road + city
+    const a = item.address || {};
+    const parts = [];
+    if (a.house_number && a.road) {
+      parts.push(`${a.house_number} ${a.road}`);
+    } else if (a.road) {
+      parts.push(a.road);
+    } else if (a.neighbourhood) {
+      parts.push(a.neighbourhood);
+    }
+    const cityish = a.city || a.town || a.village || a.hamlet || a.county;
+    if (cityish) parts.push(cityish);
+    if (!parts.length) {
+      // fallback: first bit of display_name
+      return (item.display_name || '').split(',')[0].trim();
+    }
+    return parts.join(', ');
+  }
+
+  async function nominatimSearch(q){
+    const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=5&q=${encodeURIComponent(q)}`;
+    const res = await fetch(url, { headers: { 'Accept':'application/json' } });
+    if (!res.ok) throw new Error('Geocoding failed');
+    return res.json(); // array
+  }
+
+  function clearResults(){
+    results.innerHTML = '';
+    results.style.display = 'none';
+  }
+  function showEmpty(msg){
+    results.innerHTML = `<div class="geocoder-empty">${escapeHtml(msg)}</div>`;
+    results.style.display = 'block';
+  }
+  function showResults(list){
+    if (!list || !list.length) { showEmpty('No results found.'); return; }
+    results.innerHTML = list.map((it, idx) => `
+      <div class="geocoder-item" role="option" data-idx="${idx}">
+        ${escapeHtml(it.display_name || 'Unnamed place')}
+      </div>
+    `).join('');
+    results.style.display = 'block';
+  }
+
+  function chooseResult(item){
+    clearResults();
+    input.blur();
+
+    // Prefer fitting to bounding box if available
+    if (item.boundingbox && item.boundingbox.length === 4) {
+      const bb = item.boundingbox.map(parseFloat);
+      const south = bb[0], north = bb[1], west = bb[2], east = bb[3];
+      const bounds = L.latLngBounds([south, west], [north, east]);
+      map.fitBounds(bounds.pad(0.05));
+    } else {
+      map.setView([+item.lat, +item.lon], 16);
+    }
+
+    const marker = addUserPin({ lat:+item.lat, lng:+item.lon }, true);
+    // Pre-fill a tidy label (user can change in popup)
+    const label = prettyLabelFromNominatim(item);
+    if (label) setMarkerLabel(marker, label);
+  }
+
+  async function doSearch(){
+    const q = (input.value || '').trim();
+    if (!q) { clearResults(); return; }
+    searchB.disabled = true;
+    searchB.textContent = '…';
+    try {
+      const data = await nominatimSearch(q);
+      showResults(data);
+      // Click handler for list
+      results.querySelectorAll('.geocoder-item').forEach(div => {
+        div.addEventListener('click', () => {
+          const idx = +div.getAttribute('data-idx');
+          const chosen = data[idx];
+          if (chosen) chooseResult(chosen);
+        });
+      });
+      // If exactly one result, auto-select
+      if (data.length === 1) chooseResult(data[0]);
+    } catch (e) {
+      showEmpty('Search error. Try refining your address.');
+      console.error(e);
+    } finally {
+      searchB.disabled = false;
+      searchB.textContent = 'Search';
+    }
+  }
+
+  // Wire up UI
+  searchB.addEventListener('click', doSearch);
+  clearB.addEventListener('click', () => { input.value = ''; clearResults(); input.focus(); });
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); doSearch(); }
+    if (e.key === 'Escape') { clearResults(); }
+  });
+})();

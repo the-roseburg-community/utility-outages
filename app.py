@@ -102,73 +102,74 @@ def poll_odot():
 threading.Thread(target=poll_odot, daemon=True).start()
 # -------- END ODOT CACHE --------
 
-@app.route("/outages")
-def get_pacific_power_outages():
-    try:
-        raw = requests.get(PACIFIC_POWER_URL, timeout=10).text.strip()
-        fixed = "[" + re.sub(r'}\s*{', '},{', raw).rstrip(',') + "]"
-        data = json.loads(fixed)
-        if not data or not data[0].get("outages"):
-            return jsonify([])
-        return jsonify(data)
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+# ===================== POWER PROVIDER CACHES & POLLER (NEW) =====================
 
-@app.route("/dec-outages")
-def get_dec_outages():
-    try:
-        r = requests.get(DEC_SUMMARY_URL, timeout=10)
-        summary = r.json()
-        if not summary or not summary.get("outages"):
-            return jsonify([])
-        outages = []
-        for o in summary.get("outages", []):
-            lat, lon = map_dec_xy_to_latlon(o["x"], o["y"])
-            outages.append({
-                "id": o.get("id"),
-                "latitude": lat,
-                "longitude": lon,
-                "custOut": o.get("nbrOut"),
-                "planned": o.get("planned", False),
-                "source": "DEC"
-            })
-        return jsonify(outages)
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+# Per-provider caches
+pacific_cache = {"data": None, "timestamp": 0, "error": None}  # shape: same as original /outages (list with [ { outages: [...] } ])
+dec_cache     = {"data": None, "timestamp": 0, "error": None}  # shape: list of normalized outage dicts
+clpud_cache   = {"data": None, "timestamp": 0, "error": None}  # shape: list of normalized outage dicts
+cce_cache     = {"data": None, "timestamp": 0, "error": None}  # shape: list of normalized outage dicts
 
-@app.route("/clpud-outages")
-def get_clpud_outages():
-    try:
-        r = requests.get(CLPUD_SUMMARY_URL, timeout=10)
-        summary = r.json()
-        if not summary or not summary.get("outages"):
-            return jsonify([])
-        outages = []
-        for o in summary.get("outages", []):
-            lat, lon = map_clpud_xy_to_latlon(o["x"], o["y"])
-            outages.append({
-                "id": o.get("id"),
-                "latitude": lat,
-                "longitude": lon,
-                "custOut": o.get("nbrOut"),
-                "planned": "Planned" in str(o.get("lifeCycleStatus", "")),
-                "status": o.get("lifeCycleStatus", ""),
-                "source": "CLPUD"
-            })
-        return jsonify(outages)
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+# Optional aggregated cache (not required by current frontend; provided for future use)
+power_cache   = {"data": None, "timestamp": 0, "error": None}  # shape: list of normalized outage dicts from all providers
 
-@app.route("/cce-outages")
-def get_cce_outages():
-    try:
-        r = requests.get(CCE_URL, timeout=10)
-        root = ET.fromstring(r.content)
-        ns = {"ns": "http://tempuri.org/"}
-        outages = []
-        for outage in root.find('ns:Outages', ns):
-            # XML keys: CaseNumber, CutomersAffected, X, Y, OutageTime, RestorationTime, PoleNumber, ElementName, CaseStatus, Cause
-            outages.append({
+POWER_POLL_INTERVAL = 10  # seconds
+_session = requests.Session()
+
+def _fetch_pacific_power():
+    # Returns list with same structure your frontend expects under /outages
+    resp = _session.get(PACIFIC_POWER_URL, timeout=10)
+    resp.raise_for_status()
+    raw = resp.text.strip()
+    fixed = "[" + re.sub(r'}\s*{', '},{', raw).rstrip(',') + "]"
+    data = json.loads(fixed)
+    return data
+
+def _fetch_dec():
+    resp = _session.get(DEC_SUMMARY_URL, timeout=10)
+    resp.raise_for_status()
+    summary = resp.json()
+    outages = []
+    for o in summary.get("outages", []):
+        lat, lon = map_dec_xy_to_latlon(o["x"], o["y"])
+        outages.append({
+            "id": o.get("id"),
+            "latitude": lat,
+            "longitude": lon,
+            "custOut": o.get("nbrOut"),
+            "planned": o.get("planned", False),
+            "source": "DEC"
+        })
+    return outages
+
+def _fetch_clpud():
+    resp = _session.get(CLPUD_SUMMARY_URL, timeout=10)
+    resp.raise_for_status()
+    summary = resp.json()
+    outages = []
+    for o in summary.get("outages", []):
+        lat, lon = map_clpud_xy_to_latlon(o["x"], o["y"])
+        outages.append({
+            "id": o.get("id"),
+            "latitude": lat,
+            "longitude": lon,
+            "custOut": o.get("nbrOut"),
+            "planned": "Planned" in str(o.get("lifeCycleStatus", "")),
+            "status": o.get("lifeCycleStatus", ""),
+            "source": "CLPUD"
+        })
+    return outages
+
+def _fetch_cce():
+    resp = _session.get(CCE_URL, timeout=10)
+    resp.raise_for_status()
+    root = ET.fromstring(resp.content)
+    ns = {"ns": "http://tempuri.org/"}
+    items = []
+    outages_elem = root.find('ns:Outages', ns)
+    if outages_elem is not None:
+        for outage in outages_elem:
+            items.append({
                 "id": outage.findtext('ns:CaseNumber', default='', namespaces=ns),
                 "latitude": float(outage.findtext('ns:Y', default='0', namespaces=ns)),
                 "longitude": float(outage.findtext('ns:X', default='0', namespaces=ns)),
@@ -181,9 +182,186 @@ def get_cce_outages():
                 "restorationTime": outage.findtext('ns:RestorationTime', default='', namespaces=ns),
                 "source": "CCE"
             })
-        return jsonify(outages)
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    return items
+
+def _build_aggregated_power():
+    combined = []
+
+    # Pacific: flatten to normalized objects if we have it
+    try:
+        p = pacific_cache["data"]
+        if isinstance(p, list) and p and isinstance(p[0], dict):
+            for o in (p[0].get("outages") or []):
+                if not o.get("latitude") or not o.get("longitude"):
+                    continue
+                combined.append({
+                    "id": o.get("id") or f"{o.get('latitude')},{o.get('longitude')}",
+                    "latitude": o.get("latitude"),
+                    "longitude": o.get("longitude"),
+                    "custOut": o.get("custOut"),
+                    "planned": False,
+                    "status": o.get("crewStatus"),
+                    "cause": o.get("cause"),
+                    "zip": o.get("zip"),
+                    "etr": o.get("etr"),
+                    "reported": o.get("reported"),
+                    "source": "PACIFIC"
+                })
+    except Exception:
+        pass
+
+    # DEC
+    try:
+        for o in (dec_cache["data"] or []):
+            combined.append(o)
+    except Exception:
+        pass
+
+    # CLPUD
+    try:
+        for o in (clpud_cache["data"] or []):
+            combined.append(o)
+    except Exception:
+        pass
+
+    # CCE
+    try:
+        for o in (cce_cache["data"] or []):
+            combined.append(o)
+    except Exception:
+        pass
+
+    return combined
+
+def poll_power_providers():
+    # Do an immediate fetch before entering the steady loop, so caches warm ASAP
+    while True:
+        now = time.time()
+        try:
+            # PACIFIC
+            try:
+                data = _fetch_pacific_power()
+                pacific_cache["data"] = data
+                pacific_cache["timestamp"] = time.time()
+                pacific_cache["error"] = None
+                print(f"[POWER] Pacific cache updated at {time.ctime(pacific_cache['timestamp'])} items={len(data[0].get('outages', [])) if data and isinstance(data, list) and data[0] else 0}")
+            except Exception as e:
+                pacific_cache["error"] = str(e)
+                print(f"[POWER] Pacific error: {e}")
+
+            # DEC
+            try:
+                data = _fetch_dec()
+                dec_cache["data"] = data
+                dec_cache["timestamp"] = time.time()
+                dec_cache["error"] = None
+                print(f"[POWER] DEC cache updated at {time.ctime(dec_cache['timestamp'])} items={len(data)}")
+            except Exception as e:
+                dec_cache["error"] = str(e)
+                print(f"[POWER] DEC error: {e}")
+
+            # CLPUD
+            try:
+                data = _fetch_clpud()
+                clpud_cache["data"] = data
+                clpud_cache["timestamp"] = time.time()
+                clpud_cache["error"] = None
+                print(f"[POWER] CLPUD cache updated at {time.ctime(clpud_cache['timestamp'])} items={len(data)}")
+            except Exception as e:
+                clpud_cache["error"] = str(e)
+                print(f"[POWER] CLPUD error: {e}")
+
+            # CCE
+            try:
+                data = _fetch_cce()
+                cce_cache["data"] = data
+                cce_cache["timestamp"] = time.time()
+                cce_cache["error"] = None
+                print(f"[POWER] CCE cache updated at {time.ctime(cce_cache['timestamp'])} items={len(data)}")
+            except Exception as e:
+                cce_cache["error"] = str(e)
+                print(f"[POWER] CCE error: {e}")
+
+            # Aggregated
+            try:
+                combined = _build_aggregated_power()
+                power_cache["data"] = combined
+                power_cache["timestamp"] = time.time()
+                power_cache["error"] = None
+                print(f"[POWER] Aggregated cache updated at {time.ctime(power_cache['timestamp'])} items={len(combined)}")
+            except Exception as e:
+                power_cache["error"] = str(e)
+                print(f"[POWER] Aggregated error: {e}")
+
+        except Exception as outer:
+            # catch-all so the thread never dies
+            print(f"[POWER] Poller outer error: {outer}")
+
+        # Maintain ~10s cadence from the start of the cycle
+        elapsed = time.time() - now
+        sleep_for = max(1.0, POWER_POLL_INTERVAL - elapsed)
+        time.sleep(sleep_for)
+
+# Start the power poller in a background thread
+threading.Thread(target=poll_power_providers, daemon=True).start()
+
+# ===================== END POWER PROVIDER CACHES & POLLER =====================
+
+@app.route("/outages")
+def get_pacific_power_outages():
+    # Serve from cache only
+    if pacific_cache["data"] is not None:
+        return jsonify(pacific_cache["data"])
+    elif pacific_cache["error"]:
+        return jsonify({"error": pacific_cache["error"]}), 503
+    else:
+        return jsonify({"error": "No Pacific Power data cached yet."}), 503
+
+@app.route("/dec-outages")
+def get_dec_outages():
+    # Serve from cache only
+    if dec_cache["data"] is not None:
+        return jsonify(dec_cache["data"])
+    elif dec_cache["error"]:
+        return jsonify({"error": dec_cache["error"]}), 503
+    else:
+        return jsonify({"error": "No DEC data cached yet."}), 503
+
+@app.route("/clpud-outages")
+def get_clpud_outages():
+    # Serve from cache only
+    if clpud_cache["data"] is not None:
+        return jsonify(clpud_cache["data"])
+    elif clpud_cache["error"]:
+        return jsonify({"error": clpud_cache["error"]}), 503
+    else:
+        return jsonify({"error": "No CLPUD data cached yet."}), 503
+
+@app.route("/cce-outages")
+def get_cce_outages():
+    # Serve from cache only
+    if cce_cache["data"] is not None:
+        return jsonify(cce_cache["data"])
+    elif cce_cache["error"]:
+        return jsonify({"error": cce_cache["error"]}), 503
+    else:
+        return jsonify({"error": "No CCE data cached yet."}), 503
+
+# -------- Optional aggregated route (non-breaking) --------
+@app.route("/power-outages")
+def get_power_outages():
+    if power_cache["data"] is not None:
+        # Mark stale if older than 120 seconds
+        age = time.time() - (power_cache["timestamp"] or 0)
+        return jsonify({
+            "updated": int(power_cache["timestamp"] or 0),
+            "stale": age > 120,
+            "outages": power_cache["data"]
+        })
+    elif power_cache["error"]:
+        return jsonify({"error": power_cache["error"]}), 503
+    else:
+        return jsonify({"error": "No power data cached yet."}), 503
 
 @app.route("/odot-incidents")
 def get_odot_incidents():
