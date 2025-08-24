@@ -44,7 +44,7 @@
  *
  * ============================================================================
  */
- /**
+/**
  * =============================================================================
  *    The Roseburg Receiver – Outage & Incident Map (Front-End Logic)  
  * =============================================================================
@@ -71,15 +71,16 @@
  */
 
 // ---- Legend toggle logic with localStorage ----
-const legend       = document.getElementById('map-legend');
+const legend = document.getElementById('map-legend');
 const legendToggle = document.getElementById('legend-toggle');
-const toggleBox    = document.getElementById('toggle-legend-box');
+const toggleBox = document.getElementById('toggle-legend-box');
 
 function getInitialLegendState() {
   const stored = localStorage.getItem('legendVisible');
   if (stored !== null) return stored === '1';
   return window.innerWidth > 500;
 }
+
 function setLegendState(show) {
   legend.style.display = show ? 'block' : 'none';
   toggleBox.checked = show;
@@ -104,8 +105,9 @@ const osmBase = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
   attribution: 'Map data © OpenStreetMap contributors'
 });
 const satelliteBase = L.tileLayer(
-  'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-  { attribution: 'Imagery © Esri, Maxar, Earthstar Geographics, and the GIS User Community' }
+  'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+    attribution: 'Imagery © Esri, Maxar, Earthstar Geographics, and the GIS User Community'
+  }
 );
 
 function getSavedBasemap() {
@@ -113,6 +115,7 @@ function getSavedBasemap() {
   return v === 'sat' ? 'sat' : 'osm';
 }
 let currentBase = getSavedBasemap() === 'sat' ? satelliteBase.addTo(map) : osmBase.addTo(map);
+
 function setBasemap(which) {
   const desired = which === 'sat' ? satelliteBase : osmBase;
   if (currentBase !== desired) {
@@ -126,9 +129,20 @@ function setBasemap(which) {
 // Robust popup persistence across refreshes
 // ---------------------------------------------------------------------------------
 let closeGuard = 0;
-function beginGuard() { closeGuard++; }
-function endGuard() { setTimeout(() => { closeGuard = Math.max(0, closeGuard - 1); }, 0); }
-function isGuarded() { return closeGuard > 0; }
+
+function beginGuard() {
+  closeGuard++;
+}
+
+function endGuard() {
+  setTimeout(() => {
+    closeGuard = Math.max(0, closeGuard - 1);
+  }, 0);
+}
+
+function isGuarded() {
+  return closeGuard > 0;
+}
 
 let currentOpen = null; // { layer: 'power'|'odot'|'cctv'|'dms'|'pin', key: string }
 const userClosedKeys = new Set();
@@ -139,7 +153,10 @@ map.on('popupopen', (e) => {
   const key = src.options.popupKey;
   const layerType = src.options.layerType;
   if (key && layerType) {
-    currentOpen = { layer: layerType, key };
+    currentOpen = {
+      layer: layerType,
+      key
+    };
     userClosedKeys.delete(`${layerType}|${key}`);
   }
 });
@@ -165,7 +182,7 @@ const PINS_KEY = 'trr_user_pins_v1';
 let pinMode = false;
 
 // Inject CSS to FORCE layout: Layers button above Pins menu (bottom-left)
-(function injectPositionCSS(){
+(function injectPositionCSS() {
   if (document.getElementById('trr-positions-css')) return;
   const s = document.createElement('style');
   s.id = 'trr-positions-css';
@@ -199,45 +216,73 @@ let pinMode = false;
 })();
 
 // Minimal CSS for pin labels (permanent tooltips above pin) + geocoder control
-(function injectPinAndGeocoderCSS(){
+// Minimal CSS for pin labels + geocoder control (drop-in)
+(function injectPinAndGeocoderCSS() {
   if (document.getElementById('pin-label-css')) return;
   const s = document.createElement('style');
   s.id = 'pin-label-css';
   s.textContent = `
-    .leaflet-tooltip.pin-label{
-      background:rgba(255,255,255,0.95);
-      border:1px solid #e0e0e0;
-      color:#222;
-      padding:2px 6px;
-      border-radius:4px;
-      font-weight:600;
-      font-size:12px;
-      box-shadow:0 1px 4px rgba(0,0,0,0.12);
-      pointer-events:none;
-    }
     /* Geocoder control (top-right) */
     #geocoder-control{
       position:absolute;
       top:16px;
       right:16px;
-      z-index:1003; /* above panels */
+      z-index:1003;
       background:#fff;
       border-radius:10px;
       box-shadow:0 2px 10px rgba(0,0,0,0.15);
       padding:8px;
-      width:min(360px, 90vw);
+      width:min(320px, 90vw);   /* original length */
+      max-width:none;
     }
-    #geocoder-control .row{
-      display:flex; gap:6px; align-items:stretch;
+
+    /* collapse header */
+    #geocoder-control .gc-head{
+      display:flex;
+      justify-content:flex-end;
+      margin-bottom:4px;
     }
-    #geocoder-input{
-      flex:1;
+    #geocoder-collapse{
       border:1px solid #d0d0d0;
+      background:#f6f6f6;
       border-radius:8px;
-      padding:8px 10px;
-      font-size:14px;
+      padding:2px 8px;
+      font-weight:700;
+      cursor:pointer;
+      line-height:1.2;
+    }
+
+    /* Main row */
+    #geocoder-control .row{
+      display:flex;
+      align-items:stretch;
+      gap:6px;
       min-width:0;
     }
+
+    #geocoder-input{
+      display:block;
+      box-sizing:border-box;
+      flex:1 1 200px;     /* original base */
+      min-width:0;
+      width:auto;
+      max-width:100%;
+      border:1px solid #d0d0d0;
+      border-radius:8px;
+      padding:8px 10px;   /* original padding */
+      font-size:14px;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      -webkit-appearance:none;
+      appearance:none;
+    }
+
+    @media (max-width:600px){
+      #geocoder-control { top:12px; right:12px; width:min(320px, 90vw); }
+      #geocoder-input   { flex-basis:200px; font-size:14px; padding:8px 10px; }
+    }
+
     #geocoder-search, #geocoder-clear{
       border:none;
       border-radius:8px;
@@ -245,11 +290,10 @@ let pinMode = false;
       font-weight:600;
       cursor:pointer;
       box-shadow:0 1px 3px rgba(0,0,0,0.08);
-      background:#7ea253; color:#fff;
     }
-    #geocoder-clear{
-      background:#f1f1f1; color:#333;
-    }
+    #geocoder-search{ background:#7ea253; color:#fff; }
+    #geocoder-clear { background:#f1f1f1; color:#333; }
+
     #geocoder-results{
       margin-top:6px;
       max-height:240px;
@@ -266,15 +310,46 @@ let pinMode = false;
     }
     .geocoder-item:last-child{ border-bottom:none; }
     .geocoder-item:hover{ background:#f7fbf4; }
-    .geocoder-empty{
-      padding:8px 10px; color:#666;
+    .geocoder-empty{ padding:8px 10px; color:#666; }
+
+    /* Collapsed state — shrink to just the "+" button */
+    #geocoder-control.collapsed{
+      padding:4px;
+      width:auto !important;
+      max-width:none !important;
+      display:inline-block;
+      background:#fff;
     }
-    @media (max-width:600px){
-      #geocoder-control{ top:12px; right:12px; width:min(92vw, 380px); }
+    #geocoder-control.collapsed .gc-head{
+      display:inline-flex;
+      justify-content:flex-end;
+      align-items:center;
+      margin:0;
+    }
+    #geocoder-control.collapsed #geocoder-collapse{
+      display:inline-block;
+      padding:2px 8px;
+      background:#7ea253; color:#fff; border-color:#6a8d47;
+    }
+    #geocoder-control.collapsed .row,
+    #geocoder-control.collapsed #geocoder-results{
+      display:none !important;
+    }
+
+    /* Pin label tooltip */
+    .pin-label{
+      background:#fff;
+      color:#333;
+      border:1px solid #ccc;
+      border-radius:6px;
+      padding:2px 6px;
+      box-shadow:0 1px 3px rgba(0,0,0,0.1);
+      font-weight:600;
     }
   `;
   document.head.appendChild(s);
 })();
+
 
 // Crisp red teardrop pin (SVG) + helpers
 const redPinIcon = L.divIcon({
@@ -295,13 +370,28 @@ const redPinIcon = L.divIcon({
   popupAnchor: [0, -32]
 });
 
-function escapeHtml(str=''){ return String(str).replace(/[&<>"']/g, s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s])); }
+function escapeHtml(str = '') {
+  return String(str).replace(/[&<>"']/g, s => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;'
+  } [s]));
+}
 
 function serializePins() {
   const pins = [];
   userPinsLayer.eachLayer(m => {
-    const { lat, lng } = m.getLatLng();
-    pins.push({ lat:+lat.toFixed(6), lng:+lng.toFixed(6), label: m.pinLabel || '' });
+    const {
+      lat,
+      lng
+    } = m.getLatLng();
+    pins.push({
+      lat: +lat.toFixed(6),
+      lng: +lng.toFixed(6),
+      label: m.pinLabel || ''
+    });
   });
   localStorage.setItem(PINS_KEY, JSON.stringify(pins));
 }
@@ -331,7 +421,10 @@ function addUserPin(latlng, open = true) {
     popupKey: id,
     icon: redPinIcon
   }).bindPopup(() => {
-    const { lat, lng } = marker.getLatLng();
+    const {
+      lat,
+      lng
+    } = marker.getLatLng();
     const pretty = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
     const safeName = escapeHtml(marker.pinLabel || '');
     return `
@@ -352,13 +445,16 @@ function addUserPin(latlng, open = true) {
 
   marker.on('popupopen', (e) => {
     const el = e.popup.getElement();
-    const copyBtn  = el.querySelector('.pin-copy');
-    const delBtn   = el.querySelector('.pin-delete');
-    const saveBtn  = el.querySelector('.pin-save');
-    const nameInput= el.querySelector('.pin-name');
+    const copyBtn = el.querySelector('.pin-copy');
+    const delBtn = el.querySelector('.pin-delete');
+    const saveBtn = el.querySelector('.pin-save');
+    const nameInput = el.querySelector('.pin-name');
 
     copyBtn?.addEventListener('click', async () => {
-      const { lat, lng } = marker.getLatLng();
+      const {
+        lat,
+        lng
+      } = marker.getLatLng();
       try {
         await navigator.clipboard.writeText(`${lat.toFixed(6)}, ${lng.toFixed(6)}`);
         copyBtn.textContent = 'Copied!';
@@ -398,9 +494,15 @@ function loadPins() {
     const arr = JSON.parse(raw);
     arr.forEach(item => {
       if (Array.isArray(item)) {
-        addUserPin({ lat: item[0], lng: item[1] }, false);
+        addUserPin({
+          lat: item[0],
+          lng: item[1]
+        }, false);
       } else if (item && typeof item === 'object' && 'lat' in item && 'lng' in item) {
-        const m = addUserPin({ lat: item.lat, lng: item.lng }, false);
+        const m = addUserPin({
+          lat: item.lat,
+          lng: item.lng
+        }, false);
         if (item.label) setMarkerLabel(m, item.label);
       }
     });
@@ -412,16 +514,16 @@ loadPins();
 let powerLayer = L.layerGroup();
 const odotLayer = L.layerGroup();
 const cctvLayer = L.layerGroup();
-const dmsLayer  = L.layerGroup();
+const dmsLayer = L.layerGroup();
 const milepostLayer = L.layerGroup();
 
 // ---- SVG ICON HELPERS ----
-function svgIcon(svgString, size = [24,24]) {
+function svgIcon(svgString, size = [24, 24]) {
   return L.divIcon({
     html: svgString,
     className: "",
-    iconSize:   size,
-    iconAnchor: [size[0]/2, size[1]/2]
+    iconSize: size,
+    iconAnchor: [size[0] / 2, size[1] / 2]
   });
 }
 const incidentIcons = {
@@ -429,25 +531,25 @@ const incidentIcons = {
     <svg viewBox="0 0 64 64">
       <rect x="12" y="12" width="40" height="40" fill="#fff" stroke="#444" stroke-width="4"/>
     </svg>
-  `, [18,18]),
+  `, [18, 18]),
   minorDelay: svgIcon(`
     <svg viewBox="0 0 64 64">
       <rect x="12" y="12" width="40" height="40" fill="#fff" stroke="#444" stroke-width="4"/>
       <rect x="12" y="32" width="40" height="12" fill="#e74c3c"/>
     </svg>
-  `, [18,18]),
+  `, [18, 18]),
   majorDelay: svgIcon(`
     <svg viewBox="0 0 64 64">
       <rect x="12" y="12" width="40" height="40" fill="#e74c3c" stroke="#c0392b" stroke-width="4"/>
     </svg>
-  `, [18,18]),
+  `, [18, 18]),
   closed: svgIcon(`
     <svg viewBox="0 0 64 64">
       <rect x="12" y="12" width="40" height="40" fill="#e74c3c" stroke="#c0392b" stroke-width="4"/>
       <line x1="18" y1="18" x2="46" y2="46" stroke="#fff" stroke-width="6"/>
       <line x1="46" y1="18" x2="18" y2="46" stroke="#fff" stroke-width="6"/>
     </svg>
-  `, [18,18]),
+  `, [18, 18]),
   crash: svgIcon(`
     <svg viewBox="0 0 64 64">
       <rect x="16" y="32" width="32" height="14" rx="4" fill="#666"/>
@@ -457,34 +559,36 @@ const incidentIcons = {
       <polygon points="14,38 8,34 12,32 8,28 15,31 18,26 19,33 26,31 21,36 25,40 18,38 17,45"
         fill="#ff5252" stroke="#a00" stroke-width="1"/>
     </svg>
-  `, [32,32]),
+  `, [32, 32]),
   cone: svgIcon(`
     <svg viewBox="0 0 64 64">
       <polygon points="32,8 16,56 48,56" fill="#f39c12" stroke="#e67e22" stroke-width="4"/>
       <rect x="24" y="36" width="16" height="4" fill="#fff"/>
       <rect x="28" y="44" width="8"  height="4" fill="#fff"/>
     </svg>
-  `, [18,18]),
+  `, [18, 18]),
   default: svgIcon(`
     <svg viewBox="0 0 64 64">
       <polygon points="32,4 4,60 60,60" fill="#f1c40f" stroke="#f39c12" stroke-width="4"/>
       <rect x="30" y="20" width="4" height="18" fill="#fff"/>
       <circle cx="32" cy="50" r="4" fill="#fff"/>
     </svg>
-  `, [22,22])
+  `, [22, 22])
 };
+
 function getIconForIncident(inc) {
   const desc = inc['impact-desc'] || '';
-  const hl   = (inc.headline || '').toLowerCase();
-  if (hl.includes('closed'))                                return incidentIcons.closed;
-  if (hl.includes('crash'))                                 return incidentIcons.crash;
-  if ((inc['event-type-id'] || '').includes("RW"))          return incidentIcons.cone;
+  const hl = (inc.headline || '').toLowerCase();
+  if (hl.includes('closed')) return incidentIcons.closed;
+  if (hl.includes('crash')) return incidentIcons.crash;
+  if ((inc['event-type-id'] || '').includes("RW")) return incidentIcons.cone;
   if (hl.includes('disabled') || hl.includes('obstruction') || hl.includes('hazard')) return incidentIcons.default;
   if (desc.includes('No to Minimum Delay') || desc.includes('Informational Only')) return incidentIcons.noDelay;
-  if (desc.includes('Estimated delay under 20 minutes'))    return incidentIcons.minorDelay;
+  if (desc.includes('Estimated delay under 20 minutes')) return incidentIcons.minorDelay;
   if (/hours/i.test(desc) || desc.toLowerCase().includes('closure with detour')) return incidentIcons.majorDelay;
   return incidentIcons.default;
 }
+
 function dmsIcon(isOn) {
   return L.divIcon({
     html: `<svg width="38" height="22" viewBox="0 0 38 22">
@@ -499,48 +603,83 @@ function dmsIcon(isOn) {
 }
 
 // ---- COUNTY STYLES ----
-const countyStyles = [
-  { name: 'douglas',   color: '#7ea253', fill: '#a9c995' },
-  { name: 'jackson',   color: '#068D9D', fill: '#7ed6df' },
-  { name: 'josephine', color: '#53599A', fill: '#b5b4e3' },
-  { name: 'klamath',   color: '#E67E22', fill: '#FDEBD0' },
-  { name: 'coos',      color: '#e74c3c', fill: '#fdecec' }
+const countyStyles = [{
+    name: 'douglas',
+    color: '#7ea253',
+    fill: '#a9c995'
+  },
+  {
+    name: 'jackson',
+    color: '#068D9D',
+    fill: '#7ed6df'
+  },
+  {
+    name: 'josephine',
+    color: '#53599A',
+    fill: '#b5b4e3'
+  },
+  {
+    name: 'klamath',
+    color: '#E67E22',
+    fill: '#FDEBD0'
+  },
+  {
+    name: 'coos',
+    color: '#e74c3c',
+    fill: '#fdecec'
+  }
 ];
 const polygons = {};
 const totals = {
-  coos:      { pacific: 0, cce: 0, clpud: 0 },
-  douglas:   { pacific: 0, dec: 0, clpud: 0 },
-  jackson:   { pacific: 0 },
-  josephine: { pacific: 0 },
-  klamath:   { pacific: 0 }
+  coos: {
+    pacific: 0,
+    cce: 0,
+    clpud: 0
+  },
+  douglas: {
+    pacific: 0,
+    dec: 0,
+    clpud: 0
+  },
+  jackson: {
+    pacific: 0
+  },
+  josephine: {
+    pacific: 0
+  },
+  klamath: {
+    pacific: 0
+  }
 };
+
 function updateTotalsDisplay() {
   // Coos
   document.getElementById('meters-pacific-coos').textContent = totals.coos.pacific.toLocaleString();
-  document.getElementById('meters-cce-coos').textContent     = totals.coos.cce.toLocaleString();
-  document.getElementById('meters-clpud-coos').textContent  = totals.coos.clpud.toLocaleString();
-  document.getElementById('meters-total-coos').textContent  =
+  document.getElementById('meters-cce-coos').textContent = totals.coos.cce.toLocaleString();
+  document.getElementById('meters-clpud-coos').textContent = totals.coos.clpud.toLocaleString();
+  document.getElementById('meters-total-coos').textContent =
     (totals.coos.pacific + totals.coos.cce + totals.coos.clpud).toLocaleString();
 
- // Douglas
+  // Douglas
   document.getElementById('meters-pacific-douglas').textContent = totals.douglas.pacific.toLocaleString();
-  document.getElementById('meters-dec-douglas').textContent     = totals.douglas.dec.toLocaleString();
-  document.getElementById('meters-clpud-douglas').textContent   = totals.douglas.clpud.toLocaleString();
-  document.getElementById('meters-total-douglas').textContent   =
+  document.getElementById('meters-dec-douglas').textContent = totals.douglas.dec.toLocaleString();
+  document.getElementById('meters-clpud-douglas').textContent = totals.douglas.clpud.toLocaleString();
+  document.getElementById('meters-total-douglas').textContent =
     (totals.douglas.pacific + totals.douglas.dec + totals.douglas.clpud).toLocaleString();
 
   // Jackson
   document.getElementById('meters-pacific-jackson').textContent = totals.jackson.pacific.toLocaleString();
-  document.getElementById('meters-total-jackson').textContent   = totals.jackson.pacific.toLocaleString();
+  document.getElementById('meters-total-jackson').textContent = totals.jackson.pacific.toLocaleString();
 
   // Josephine
   document.getElementById('meters-pacific-josephine').textContent = totals.josephine.pacific.toLocaleString();
-  document.getElementById('meters-total-josephine').textContent   = totals.josephine.pacific.toLocaleString();
+  document.getElementById('meters-total-josephine').textContent = totals.josephine.pacific.toLocaleString();
 
   // Klamath
   document.getElementById('meters-pacific-klamath').textContent = totals.klamath.pacific.toLocaleString();
-  document.getElementById('meters-total-klamath').textContent   = totals.klamath.pacific.toLocaleString();
+  document.getElementById('meters-total-klamath').textContent = totals.klamath.pacific.toLocaleString();
 }
+
 function pointInCounty(lat, lon, county) {
   const poly = polygons[county];
   return poly ? turf.booleanPointInPolygon(turf.point([lon, lat]), poly) : false;
@@ -565,8 +704,15 @@ function fetchOutages() {
       if (!o.latitude || !o.longitude) return;
       const popupKey = o.id || `${o.latitude},${o.longitude}`;
       const marker = L.circleMarker([o.latitude, o.longitude], {
-        radius: 8, fillColor: '#007bff', color: '#000', weight: 1, opacity: 1, fillOpacity: 0.85,
-        outageId: popupKey, popupKey, layerType: 'power'
+        radius: 8,
+        fillColor: '#007bff',
+        color: '#000',
+        weight: 1,
+        opacity: 1,
+        fillOpacity: 0.85,
+        outageId: popupKey,
+        popupKey,
+        layerType: 'power'
       }).bindPopup(`
         <strong>ZIP:</strong> ${o.zip}<br/>
         <strong>Impacted Meters:</strong> ${o.custOut}<br/>
@@ -579,7 +725,7 @@ function fetchOutages() {
       markerList.push(marker);
       markersByKey.set(popupKey, marker);
 
-      ['douglas','jackson','josephine','klamath','coos'].forEach(cty => {
+      ['douglas', 'jackson', 'josephine', 'klamath', 'coos'].forEach(cty => {
         if (pointInCounty(o.latitude, o.longitude, cty)) {
           totals[cty].pacific += Number(o.custOut) || 0;
         }
@@ -591,8 +737,15 @@ function fetchOutages() {
       if (!o.latitude || !o.longitude) return;
       const popupKey = o.id || `${o.latitude},${o.longitude}`;
       const marker = L.circleMarker([o.latitude, o.longitude], {
-        radius: 8, fillColor: '#ffa500', color: '#000', weight: 1, opacity: 1, fillOpacity: 0.85,
-        outageId: popupKey, popupKey, layerType: 'power'
+        radius: 8,
+        fillColor: '#ffa500',
+        color: '#000',
+        weight: 1,
+        opacity: 1,
+        fillOpacity: 0.85,
+        outageId: popupKey,
+        popupKey,
+        layerType: 'power'
       }).bindPopup(`
         <strong>Impacted Meters:</strong> ${o.custOut}<br/>
         <strong>Status:</strong> ${o.planned ? 'Planned' : 'Unplanned'}<br/>
@@ -612,8 +765,15 @@ function fetchOutages() {
       if (!o.latitude || !o.longitude) return;
       const popupKey = o.id || `${o.latitude},${o.longitude}`;
       const marker = L.circleMarker([o.latitude, o.longitude], {
-        radius: 8, fillColor: '#AA40FF', color: '#000', weight: 1, opacity: 1, fillOpacity: 0.85,
-        outageId: popupKey, popupKey, layerType: 'power'
+        radius: 8,
+        fillColor: '#AA40FF',
+        color: '#000',
+        weight: 1,
+        opacity: 1,
+        fillOpacity: 0.85,
+        outageId: popupKey,
+        popupKey,
+        layerType: 'power'
       }).bindPopup(`
         <strong>Impacted Meters:</strong> ${o.custOut}<br/>
         <strong>Status:</strong> ${o.planned ? 'Planned' : 'Unplanned'}<br/>
@@ -636,8 +796,15 @@ function fetchOutages() {
       if (!o.latitude || !o.longitude) return;
       const popupKey = o.id || `${o.latitude},${o.longitude}`;
       const marker = L.circleMarker([o.latitude, o.longitude], {
-        radius: 8, fillColor: '#e74c3c', color: '#000', weight: 1, opacity: 1, fillOpacity: 0.85,
-        outageId: popupKey, popupKey, layerType: 'power'
+        radius: 8,
+        fillColor: '#e74c3c',
+        color: '#000',
+        weight: 1,
+        opacity: 1,
+        fillOpacity: 0.85,
+        outageId: popupKey,
+        popupKey,
+        layerType: 'power'
       }).bindPopup(`
         <strong>Case Number:</strong> ${o.id}<br/>
         <strong>Impacted Meters:</strong> ${o.custOut}<br/>
@@ -664,7 +831,7 @@ function fetchOutages() {
     markerList.forEach(m => powerLayer.addLayer(m));
 
     if (currentOpen && currentOpen.layer === 'power' &&
-        !userClosedKeys.has(`power|${currentOpen.key}`)) {
+      !userClosedKeys.has(`power|${currentOpen.key}`)) {
       const m = markersByKey.get(currentOpen.key);
       if (m) setTimeout(() => m.openPopup(), 0);
     }
@@ -675,13 +842,13 @@ function fetchOutages() {
 
 // ---- ODOT INCIDENTS ----
 function formatLaneInfo(inc) {
-  const tl       = inc['travel-lanes'] || {};
-  const decDir   = tl['decreasing-direction']  || 'N/A';
+  const tl = inc['travel-lanes'] || {};
+  const decDir = tl['decreasing-direction'] || 'N/A';
   const decCount = tl['decreasing-lane-count'] ?? 0;
-  const incDir   = tl['increasing-direction']  || 'N/A';
+  const incDir = tl['increasing-direction'] || 'N/A';
   const incCount = tl['increasing-lane-count'] ?? 0;
-  let summary = `${decDir}: ${decCount} lane${decCount !== 1 ? 's' : ''}, `
-              + `${incDir}: ${incCount} lane${incCount !== 1 ? 's' : ''}`;
+  let summary = `${decDir}: ${decCount} lane${decCount !== 1 ? 's' : ''}, ` +
+    `${incDir}: ${incCount} lane${incCount !== 1 ? 's' : ''}`;
   const affected = tl['affected-lanes'] || [];
   if (affected.length) {
     const list = affected.map(a =>
@@ -691,6 +858,7 @@ function formatLaneInfo(inc) {
   }
   return summary;
 }
+
 function fetchOdotIncidents() {
   fetch('/odot-incidents')
     .then(r => r.json())
@@ -709,13 +877,15 @@ function fetchOdotIncidents() {
         const popupKey = inc['incident-id'];
         const marker = L.marker([lat, lon], {
           icon: getIconForIncident(inc),
-          incidentId: popupKey, popupKey, layerType: 'odot'
+          incidentId: popupKey,
+          popupKey,
+          layerType: 'odot'
         });
-        const startMP  = loc['start-milepost'] ?? 'N/A';
-        const endMP    = inc.location['end-location']?.['end-milepost'];
-        const mpRange  = endMP ? `${startMP} – ${endMP}` : startMP;
+        const startMP = loc['start-milepost'] ?? 'N/A';
+        const endMP = inc.location['end-location']?.['end-milepost'];
+        const mpRange = endMP ? `${startMP} – ${endMP}` : startMP;
         const laneHtml = formatLaneInfo(inc);
-        const popup   = `
+        const popup = `
           <strong>${inc.headline}</strong><br/>
           <em>${inc['impact-desc']}</em><br/><br/>
           <strong>Location:</strong> ${loc['location-desc']}<br/>
@@ -731,7 +901,7 @@ function fetchOdotIncidents() {
       });
 
       if (currentOpen && currentOpen.layer === 'odot' &&
-          !userClosedKeys.has(`odot|${currentOpen.key}`)) {
+        !userClosedKeys.has(`odot|${currentOpen.key}`)) {
         const m = markersByKey.get(currentOpen.key);
         if (m) setTimeout(() => m.openPopup(), 0);
       }
@@ -766,7 +936,9 @@ function fetchCameras() {
         const popupKey = cam['device-id'] || cam['device-name'];
         const marker = L.marker([cam.latitude, cam.longitude], {
           icon: cameraIcon,
-          deviceId: popupKey, popupKey, layerType: 'cctv'
+          deviceId: popupKey,
+          popupKey,
+          layerType: 'cctv'
         });
         marker.bindPopup(`
           <div style="max-width:340px;">
@@ -777,13 +949,15 @@ function fetchCameras() {
             <em>${cam['cctv-other'] || ''}</em><br/>
             <small>Last update: ${cam['last-update-time'] ? new Date(cam['last-update-time']).toLocaleString() : 'n/a'}</small>
           </div>
-        `, { maxWidth: 340 });
+        `, {
+          maxWidth: 340
+        });
         cctvLayer.addLayer(marker);
         markersByKey.set(popupKey, marker);
       });
 
       if (currentOpen && currentOpen.layer === 'cctv' &&
-          !userClosedKeys.has(`cctv|${currentOpen.key}`)) {
+        !userClosedKeys.has(`cctv|${currentOpen.key}`)) {
         const m = markersByKey.get(currentOpen.key);
         if (m) setTimeout(() => m.openPopup(), 0);
       }
@@ -813,6 +987,7 @@ if (!document.getElementById('dms-board-css')) {
 `;
   document.head.appendChild(style);
 }
+
 function formatDmsReaderBoard(st) {
   if (!st || !st.dmsCurrentMessage) return "";
   let lines = [
@@ -855,6 +1030,7 @@ function formatDmsReaderBoard(st) {
       centered[i] = "-".repeat(maxLen);
     }
   }
+
   function centerPad(str) {
     str = (str || "");
     let pad = maxLen - str.length;
@@ -867,6 +1043,7 @@ function formatDmsReaderBoard(st) {
     .join("");
   return `<div class="dms-board">${rendered}</div>`;
 }
+
 function fetchDmsLayer() {
   const markersByKey = new Map();
 
@@ -911,14 +1088,18 @@ function fetchDmsLayer() {
       }
       const marker = L.marker([sign.latitude, sign.longitude], {
         icon: dmsIcon(isOn),
-        dmsId: sid, popupKey: sid, layerType: 'dms'
-      }).bindPopup(popup, {maxWidth: 340});
+        dmsId: sid,
+        popupKey: sid,
+        layerType: 'dms'
+      }).bindPopup(popup, {
+        maxWidth: 340
+      });
       dmsLayer.addLayer(marker);
       markersByKey.set(sid, marker);
     });
 
     if (currentOpen && currentOpen.layer === 'dms' &&
-        !userClosedKeys.has(`dms|${currentOpen.key}`)) {
+      !userClosedKeys.has(`dms|${currentOpen.key}`)) {
       const m = markersByKey.get(currentOpen.key);
       if (m) setTimeout(() => m.openPopup(), 0);
     }
@@ -931,7 +1112,11 @@ function fetchDmsLayer() {
 function drawLine(wkt) {
   const geojson = wellknown.parse(wkt);
   L.geoJSON(geojson, {
-    style: { color: '#e74c3c', weight: 4, opacity: 0.7 }
+    style: {
+      color: '#e74c3c',
+      weight: 4,
+      opacity: 0.7
+    }
   }).addTo(odotLayer);
 }
 
@@ -941,12 +1126,17 @@ fetch('/static/filtered_counties.geojson')
   .then(geojson => {
     countyStyles.forEach(cfg => {
       const feat = geojson.features.find(f =>
-        (f.properties.COUNTY_NAME||'').toLowerCase() === cfg.name
+        (f.properties.COUNTY_NAME || '').toLowerCase() === cfg.name
       );
       if (!feat) return;
       polygons[cfg.name] = feat;
       L.geoJSON(feat, {
-        style: { color: cfg.color, weight: 4, fillColor: cfg.fill, fillOpacity: 0.3 }
+        style: {
+          color: cfg.color,
+          weight: 4,
+          fillColor: cfg.fill,
+          fillOpacity: 0.3
+        }
       }).addTo(map);
     });
     fetchOutages();
@@ -963,6 +1153,7 @@ fetch('/static/filtered_counties.geojson')
 // ---- MILEPOSTS LAYER (SHOWS ONLY TEXT WHEN ZOOMED IN) ----
 let allMilepostFeatures = [];
 let milepostMarkersLayer = L.layerGroup();
+
 function updateMilepostsLayer() {
   milepostMarkersLayer.clearLayers();
   if (!map.hasLayer(milepostLayer)) return;
@@ -984,7 +1175,8 @@ function updateMilepostsLayer() {
     if (!mpLabel) return;
     if (!placed[mpLabel]) placed[mpLabel] = [];
     const near = placed[mpLabel].some(([plat, plon]) => {
-      const dLat = lat - plat, dLon = lon - plon;
+      const dLat = lat - plat,
+        dLon = lon - plon;
       return (dLat * dLat + dLon * dLon) < (MIN_DIST_DEGREES * MIN_DIST_DEGREES);
     });
     if (near) return;
@@ -1034,6 +1226,7 @@ fetch('/static/mileposts.geojson')
     updateMilepostsLayer();
   });
 let milepostDebounce;
+
 function debouncedMilepostsUpdate() {
   clearTimeout(milepostDebounce);
   milepostDebounce = setTimeout(updateMilepostsLayer, 250);
@@ -1054,6 +1247,7 @@ const tabPower = document.getElementById('tab-power');
 const tabOdot = document.getElementById('tab-odot');
 const contentPower = document.getElementById('legend-content-power');
 const contentOdot = document.getElementById('legend-content-odot');
+
 function showTab(which) {
   if (which === 'power') {
     contentPower.style.display = '';
@@ -1080,10 +1274,10 @@ if (tabPower && tabOdot && contentPower && contentOdot) {
 const layersButton = document.getElementById('layers-button');
 const layersPanel = document.getElementById('layers-panel');
 const layerToggles = {
-  power:  document.getElementById('layer-toggle-power'),
-  odot:   document.getElementById('layer-toggle-odot'),
-  cctv:   document.getElementById('layer-toggle-cctv'),
-  dms:    document.getElementById('layer-toggle-dms'),
+  power: document.getElementById('layer-toggle-power'),
+  odot: document.getElementById('layer-toggle-odot'),
+  cctv: document.getElementById('layer-toggle-cctv'),
+  dms: document.getElementById('layer-toggle-dms'),
   mileposts: document.getElementById('layer-toggle-mileposts')
 };
 
@@ -1093,7 +1287,7 @@ const layerToggles = {
     L.DomEvent.disableClickPropagation(layersButton);
     L.DomEvent.disableScrollPropagation(layersButton);
     L.DomEvent.on(layersButton, 'contextmenu', L.DomEvent.stop);
-    L.DomEvent.on(layersButton, 'dblclick',   L.DomEvent.stop);
+    L.DomEvent.on(layersButton, 'dblclick', L.DomEvent.stop);
     // IMPORTANT: no touchstart/mousedown preventDefault on the button
   }
 
@@ -1102,7 +1296,7 @@ const layerToggles = {
     L.DomEvent.disableScrollPropagation(layersPanel);
 
     // Only stop propagation so clicks still "work" on inputs/labels
-    ['touchstart','touchmove','touchend','pointerdown','pointerup','mousedown','mouseup','click','dblclick','contextmenu'].forEach(ev => {
+    ['touchstart', 'touchmove', 'touchend', 'pointerdown', 'pointerup', 'mousedown', 'mouseup', 'click', 'dblclick', 'contextmenu'].forEach(ev => {
       L.DomEvent.on(layersPanel, ev, L.DomEvent.stopPropagation);
     });
 
@@ -1132,7 +1326,8 @@ const layerToggles = {
   const saved = getSavedBasemap();
   const osmRadio = section.querySelector('#basemap-osm');
   const satRadio = section.querySelector('#basemap-sat');
-  if (saved === 'sat') satRadio.checked = true; else osmRadio.checked = true;
+  if (saved === 'sat') satRadio.checked = true;
+  else osmRadio.checked = true;
 
   section.addEventListener('change', (e) => {
     const v = (e.target && e.target.value) || 'osm';
@@ -1142,14 +1337,19 @@ const layerToggles = {
 
 function setLayerVisible(layer, visible) {
   if (layer === 'mileposts') {
-    if (visible) { map.addLayer(milepostLayer); } else { map.removeLayer(milepostLayer); }
+    if (visible) {
+      map.addLayer(milepostLayer);
+    } else {
+      map.removeLayer(milepostLayer);
+    }
     updateMilepostsLayer();
-  } else if (layer === 'power')  visible ? powerLayer.addTo(map) : map.removeLayer(powerLayer);
-  else if (layer === 'odot')     visible ? odotLayer.addTo(map)  : map.removeLayer(odotLayer);
-  else if (layer === 'cctv')     visible ? cctvLayer.addTo(map)  : map.removeLayer(cctvLayer);
-  else if (layer === 'dms')      visible ? dmsLayer.addTo(map)   : map.removeLayer(dmsLayer);
+  } else if (layer === 'power') visible ? powerLayer.addTo(map) : map.removeLayer(powerLayer);
+  else if (layer === 'odot') visible ? odotLayer.addTo(map) : map.removeLayer(odotLayer);
+  else if (layer === 'cctv') visible ? cctvLayer.addTo(map) : map.removeLayer(cctvLayer);
+  else if (layer === 'dms') visible ? dmsLayer.addTo(map) : map.removeLayer(dmsLayer);
   localStorage.setItem(layer + 'Visible', visible ? '1' : '0');
 }
+
 function updateLayerTogglesFromStorage() {
   Object.keys(layerToggles).forEach(layer => {
     const stored = localStorage.getItem(layer + 'Visible');
@@ -1165,6 +1365,7 @@ Object.entries(layerToggles).forEach(([layer, checkbox]) => {
   });
 });
 let panelOpen = localStorage.getItem('layersPanelOpen') === '1';
+
 function setPanel(open) {
   panelOpen = open;
   layersPanel.style.display = open ? 'block' : 'none';
@@ -1198,7 +1399,7 @@ document.addEventListener('click', e => {
   container.appendChild(pinsMenu);
 
   const toggle = pinsMenu.querySelector('.pin-toggle');
-  const clear  = pinsMenu.querySelector('.pin-clear');
+  const clear = pinsMenu.querySelector('.pin-clear');
 
   L.DomEvent.disableClickPropagation(pinsMenu);
   L.DomEvent.disableScrollPropagation(pinsMenu);
@@ -1208,11 +1409,19 @@ document.addEventListener('click', e => {
     toggle.classList.toggle('active', pinMode);
     toggle.style.outline = pinMode ? '2px solid #7ea253' : 'none';
     map.getContainer().classList.toggle('map-pin-mode', pinMode);
-    if (pinMode) map.doubleClickZoom.disable(); else map.doubleClickZoom.enable();
+    if (pinMode) map.doubleClickZoom.disable();
+    else map.doubleClickZoom.enable();
   }
 
-  toggle.addEventListener('click', (e) => { e.preventDefault(); setMode(!pinMode); });
-  clear.addEventListener('click',  (e) => { e.preventDefault(); userPinsLayer.clearLayers(); serializePins(); });
+  toggle.addEventListener('click', (e) => {
+    e.preventDefault();
+    setMode(!pinMode);
+  });
+  clear.addEventListener('click', (e) => {
+    e.preventDefault();
+    userPinsLayer.clearLayers();
+    serializePins();
+  });
 })();
 
 // Add pin on left-click when in pin mode (guard against UI-originated clicks)
@@ -1240,7 +1449,10 @@ map.on('touchstart', (e) => {
   _longPressTimer = setTimeout(() => addUserPin(latlng), 650);
 });
 map.on('touchend touchmove', () => {
-  if (_longPressTimer) { clearTimeout(_longPressTimer); _longPressTimer = null; }
+  if (_longPressTimer) {
+    clearTimeout(_longPressTimer);
+    _longPressTimer = null;
+  }
 });
 
 /* ==========================================================
@@ -1249,13 +1461,16 @@ map.on('touchend touchmove', () => {
    - See a small result list; click one to zoom & drop a pin
    - Pin popup opens with Name (optional) field pre-filled
 ========================================================== */
-(function addGeocoderControl(){
+(function addGeocoderControl() {
   const container = map.getContainer();
 
   // Build UI
   const gc = document.createElement('div');
   gc.id = 'geocoder-control';
   gc.innerHTML = `
+    <div class="gc-head">
+      <button id="geocoder-collapse" type="button" aria-expanded="true" title="Hide search">–</button>
+    </div>
     <div class="row">
       <input id="geocoder-input" type="text" placeholder="Find an address or place…" aria-label="Search address">
       <button id="geocoder-search" type="button" title="Search">Search</button>
@@ -1269,13 +1484,32 @@ map.on('touchend touchmove', () => {
   L.DomEvent.disableClickPropagation(gc);
   L.DomEvent.disableScrollPropagation(gc);
 
-  const input   = gc.querySelector('#geocoder-input');
+  const input = gc.querySelector('#geocoder-input');
   const searchB = gc.querySelector('#geocoder-search');
-  const clearB  = gc.querySelector('#geocoder-clear');
+  const clearB = gc.querySelector('#geocoder-clear');
   const results = gc.querySelector('#geocoder-results');
 
+  const collapseBtn = gc.querySelector('#geocoder-collapse');
+  const COLLAPSE_KEY = 'trr_gc_collapsed_v1';
+
+  function setCollapsed(on){
+    gc.classList.toggle('collapsed', on);
+    collapseBtn.setAttribute('aria-expanded', String(!on));
+    collapseBtn.textContent = on ? '+' : '–';
+    localStorage.setItem(COLLAPSE_KEY, on ? '1' : '0');
+  }
+
+  // INIT — collapsed by default unless a prior choice exists
+  const stored = localStorage.getItem(COLLAPSE_KEY);
+  setCollapsed(stored ? stored === '1' : true);   // ← default collapsed
+
+  collapseBtn.addEventListener('click', () =>
+    setCollapsed(!gc.classList.contains('collapsed'))
+  );
+
+
   // Basic helper to shorten address for label
-  function prettyLabelFromNominatim(item){
+  function prettyLabelFromNominatim(item) {
     // Prefer house number + road + city
     const a = item.address || {};
     const parts = [];
@@ -1295,23 +1529,32 @@ map.on('touchend touchmove', () => {
     return parts.join(', ');
   }
 
-  async function nominatimSearch(q){
+  async function nominatimSearch(q) {
     const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=5&q=${encodeURIComponent(q)}`;
-    const res = await fetch(url, { headers: { 'Accept':'application/json' } });
+    const res = await fetch(url, {
+      headers: {
+        'Accept': 'application/json'
+      }
+    });
     if (!res.ok) throw new Error('Geocoding failed');
     return res.json(); // array
   }
 
-  function clearResults(){
+  function clearResults() {
     results.innerHTML = '';
     results.style.display = 'none';
   }
-  function showEmpty(msg){
+
+  function showEmpty(msg) {
     results.innerHTML = `<div class="geocoder-empty">${escapeHtml(msg)}</div>`;
     results.style.display = 'block';
   }
-  function showResults(list){
-    if (!list || !list.length) { showEmpty('No results found.'); return; }
+
+  function showResults(list) {
+    if (!list || !list.length) {
+      showEmpty('No results found.');
+      return;
+    }
     results.innerHTML = list.map((it, idx) => `
       <div class="geocoder-item" role="option" data-idx="${idx}">
         ${escapeHtml(it.display_name || 'Unnamed place')}
@@ -1320,29 +1563,38 @@ map.on('touchend touchmove', () => {
     results.style.display = 'block';
   }
 
-  function chooseResult(item){
+  function chooseResult(item) {
     clearResults();
     input.blur();
 
     // Prefer fitting to bounding box if available
     if (item.boundingbox && item.boundingbox.length === 4) {
       const bb = item.boundingbox.map(parseFloat);
-      const south = bb[0], north = bb[1], west = bb[2], east = bb[3];
+      const south = bb[0],
+        north = bb[1],
+        west = bb[2],
+        east = bb[3];
       const bounds = L.latLngBounds([south, west], [north, east]);
       map.fitBounds(bounds.pad(0.05));
     } else {
       map.setView([+item.lat, +item.lon], 16);
     }
 
-    const marker = addUserPin({ lat:+item.lat, lng:+item.lon }, true);
+    const marker = addUserPin({
+      lat: +item.lat,
+      lng: +item.lon
+    }, true);
     // Pre-fill a tidy label (user can change in popup)
     const label = prettyLabelFromNominatim(item);
     if (label) setMarkerLabel(marker, label);
   }
 
-  async function doSearch(){
+  async function doSearch() {
     const q = (input.value || '').trim();
-    if (!q) { clearResults(); return; }
+    if (!q) {
+      clearResults();
+      return;
+    }
     searchB.disabled = true;
     searchB.textContent = '…';
     try {
@@ -1369,9 +1621,18 @@ map.on('touchend touchmove', () => {
 
   // Wire up UI
   searchB.addEventListener('click', doSearch);
-  clearB.addEventListener('click', () => { input.value = ''; clearResults(); input.focus(); });
+  clearB.addEventListener('click', () => {
+    input.value = '';
+    clearResults();
+    input.focus();
+  });
   input.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') { e.preventDefault(); doSearch(); }
-    if (e.key === 'Escape') { clearResults(); }
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      doSearch();
+    }
+    if (e.key === 'Escape') {
+      clearResults();
+    }
   });
 })();
