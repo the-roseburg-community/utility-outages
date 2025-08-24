@@ -1353,7 +1353,7 @@ function setLayerVisible(layer, visible) {
 function updateLayerTogglesFromStorage() {
   Object.keys(layerToggles).forEach(layer => {
     const stored = localStorage.getItem(layer + 'Visible');
-    const visible = stored === null ? true : stored === '1';
+    const visible = stored === '1';   // defaults to false if null (disables all layers by default)
     layerToggles[layer].checked = visible;
     setLayerVisible(layer, visible);
   });
