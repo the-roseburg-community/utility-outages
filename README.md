@@ -47,7 +47,7 @@ and renders them on an interactive county map, complete with per-utility custome
 ## Demo
 
 Access the live map at:  
-[https://outages.roseburgscanner.com](https://outages.roseburgscanner.com)
+[https://outages.theroseburgreceiver.com](https://outages.theroseburgreceiver.com)
 
 ---
 
@@ -190,9 +190,9 @@ See `LICENSE` for details.
 
 ## Project Ownership
 
-Community-driven by [The Roseburg Receiver](https://roseburgscanner.com)  
+Community-driven by [The Roseburg Receiver](https://theroseburgreceiver.com)  
 Douglas County, Oregon – Not-for-profit, open to all.
 
-Contact & Info: [roseburgscanner.com/about/#contact-the-roseburg-receiver](https://www.roseburgscanner.com/about/#contact-the-roseburg-receiver)
+Contact & Info: [theroseburgreceiver.com/about/#contact-the-roseburg-receiver](https://www.theroseburgreceiver.com/about/#contact-the-roseburg-receiver)
 
 ---

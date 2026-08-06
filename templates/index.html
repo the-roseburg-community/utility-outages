@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <title>The Roseburg Receiver – Outage Map</title>
-  <link rel="canonical" href="https://outages.roseburgscanner.com">
+  <link rel="canonical" href="https://outages.theroseburgreceiver.com">
   <meta name="robots" content="index, follow">
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" href="/static/favicon.ico">
@@ -14,20 +14,47 @@
   <meta property="og:type" content="website">
   <meta property="og:title" content="The Roseburg Receiver – Oregon Power & Outage Map">
   <meta property="og:description" content="Live map of power outages, ODOT incidents, cameras, and message boards across Douglas County and nearby counties. Stay informed with real-time updates from The Roseburg Receiver.">
-  <meta property="og:url" content="https://outages.roseburgscanner.com">
-  <meta property="og:image" content="https://outages.roseburgscanner.com/static/siteimage.png">
+  <meta property="og:url" content="https://outages.theroseburgreceiver.com">
+  <meta property="og:image" content="https://outages.theroseburgreceiver.com/static/siteimage.png">
   <meta property="og:site_name" content="The Roseburg Receiver">
 
   <!-- Twitter / X Card -->
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="The Roseburg Receiver – Oregon Power & Outage Map">
   <meta name="twitter:description" content="Live map of power outages, ODOT incidents, cameras, and message boards across Douglas County and nearby counties.">
-  <meta name="twitter:image" content="https://outages.roseburgscanner.com/static/siteimage.png">
+  <meta name="twitter:image" content="https://outages.theroseburgreceiver.com/static/siteimage.png">
 
   <!-- General SEO -->
   <meta name="description" content="Live map of power outages, ODOT incidents, cameras, and message boards across Douglas County and nearby counties. Stay informed with real-time updates from The Roseburg Receiver.">
   <meta name="author" content="The Roseburg Receiver">
   <meta name="theme-color" content="#7ea253" />
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "The Roseburg Receiver - Utility Outage Map",
+    "url": "https://outages.theroseburgreceiver.com",
+    "description": "Live map of power outages, ODOT traffic incidents, road cameras, message signs, and wildfires across Douglas County and nearby Oregon counties.",
+    "applicationCategory": "UtilitiesApplication",
+    "operatingSystem": "Any",
+    "isAccessibleForFree": true,
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD"
+    },
+    "publisher": {
+      "@type": "Organization",
+      "name": "The Roseburg Receiver",
+      "url": "https://theroseburgreceiver.com"
+    },
+    "areaServed": {
+      "@type": "AdministrativeArea",
+      "name": "Douglas County, Oregon"
+    }
+  }
+  </script>
 
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-6SLECH0JPL"></script>
   <script>
@@ -38,45 +65,50 @@
   </script>
 </head>
 <body>
-  <header>
-    <a href="https://roseburgscanner.com" target="_blank" rel="noopener">
-      <img src="/static/real-logo.png" alt="Roseburg Receiver Logo" class="logo"/>
-    </a>
-    <div class="header-text">
-      <div class="site-title">Utility Outage Map</div>
-      <div class="site-link">
-        <a href="https://roseburgscanner.com" target="_blank" rel="noopener">
-          roseburgscanner.com
-        </a>
+  <header class="site-header">
+    <div class="header-inner">
+      <a href="https://theroseburgreceiver.com" class="brand" target="_blank" rel="noopener">
+        <img src="/static/real-logo.png" alt="The Roseburg Receiver" class="logo"/>
+      </a>
+      <div class="header-text">
+        <h1 class="site-title">Utility Outage Map</h1>
+        <div class="site-link">
+          <a href="https://theroseburgreceiver.com" target="_blank" rel="noopener">
+            theroseburgreceiver.com
+          </a>
+        </div>
       </div>
     </div>
   </header>
 
-  <div id="layers-button" style="position: absolute; left: 16px; top: 70px; z-index: 1001;">
-    <button aria-label="Layers" style="background:#fff; border-radius:8px; border:none; box-shadow:0 2px 7px #0002; padding:7px 12px; display:flex; align-items:center; gap:7px;">
-      <svg width="21" height="21" viewBox="0 0 24 24"><path fill="#7ea253" d="M12 3L2 9l10 6 10-6-10-6zm0 15.2l-7-4.2v2l7 4.2 7-4.2v-2l-7 4.2z"></path></svg>
-      <span>Layers</span>
-    </button>
+  <div id="map">
+    <div id="layers-button" class="map-control-button">
+      <button aria-label="Layers" style="background:#fff; border-radius:8px; border:none; box-shadow:0 2px 7px #0002; padding:7px 12px; display:flex; align-items:center; gap:7px;">
+        <svg width="21" height="21" viewBox="0 0 24 24"><path fill="#7ea253" d="M12 3L2 9l10 6 10-6-10-6zm0 15.2l-7-4.2v2l7 4.2 7-4.2v-2l-7 4.2z"></path></svg>
+        <span>Layers</span>
+      </button>
+    </div>
+    <div id="layers-panel" class="map-control-panel" style="display:none;">
+      <label style="display:block; margin-bottom:10px;">
+        <input type="checkbox" id="layer-toggle-power"> Power Outages
+      </label>
+      <label style="display:block; margin-bottom:10px;">
+        <input type="checkbox" id="layer-toggle-odot"> ODOT Incidents
+      </label>
+      <label style="display:block; margin-bottom:10px;">
+        <input type="checkbox" id="layer-toggle-cctv"> ODOT Cameras
+      </label>
+      <label style="display:block; margin-bottom:10px;">
+        <input type="checkbox" id="layer-toggle-dms"> ODOT Message Signs
+      </label>
+      <label style="display:block; margin-bottom:10px;">
+        <input type="checkbox" id="layer-toggle-mileposts"> Oregon Mileposts
+      </label>
+      <label style="display:block; margin-bottom:10px;">
+        <input type="checkbox" id="layer-toggle-wildfire"> Wildfires
+      </label>
+    </div>
   </div>
-  <div id="layers-panel" style="display:none; position: absolute; left:16px; top: 110px; z-index:1002; background:#fff; border-radius:12px; box-shadow:0 4px 16px #0002; padding:14px 24px; min-width:170px;">
-    <label style="display:block; margin-bottom:10px;">
-      <input type="checkbox" id="layer-toggle-power"> Power Outages
-    </label>
-    <label style="display:block; margin-bottom:10px;">
-      <input type="checkbox" id="layer-toggle-odot"> ODOT Incidents
-    </label>
-    <label style="display:block; margin-bottom:10px;">
-      <input type="checkbox" id="layer-toggle-cctv"> ODOT Cameras
-    </label>
-    <label style="display:block; margin-bottom:10px;">
-      <input type="checkbox" id="layer-toggle-dms"> ODOT Message Signs
-    </label>
-    <label style="display:block; margin-bottom:10px;">
-      <input type="checkbox" id="layer-toggle-mileposts"> Oregon Mileposts
-    </label>
-  </div>
-
-  <div id="map"></div>
 
   <div class="legend-toggle" id="legend-toggle">
     <input type="checkbox" id="toggle-legend-box" checked>
@@ -87,221 +119,239 @@
     <div class="legend-tabs">
       <button type="button" class="legend-tab legend-tab-active" id="tab-power" tabindex="0" aria-selected="true">Power</button>
       <button type="button" class="legend-tab" id="tab-odot" tabindex="0" aria-selected="false">ODOT</button>
+      <button type="button" class="legend-tab" id="tab-wildfire" tabindex="0" aria-selected="false">Fire</button>
     </div>
 
+    <div class="legend-body" id="legend-content-power">
+      <div class="legend-eyebrow">Utility Providers</div>
+      <ul class="legend-swatch-list">
+        <li><span class="legend-swatch" style="background:#007bff;"></span>Pacific Power</li>
+        <li><span class="legend-swatch" style="background:#ffa500;"></span>Douglas Electric Cooperative</li>
+        <li><span class="legend-swatch" style="background:#AA40FF;"></span>Central Lincoln PUD</li>
+        <li><span class="legend-swatch" style="background:#e74c3c;"></span>Coos-Curry Electric Cooperative</li>
+      </ul>
 
-    <div id="legend-content-power">
-      <div class="legend-title">Legend</div>
-      <div class="legend-box">
-        <span class="legend-icon legend-blue"></span> Pacific Power<br/>
-        <span class="legend-icon legend-orange"></span> Douglas Electric Cooperative<br/>
-        <span class="legend-icon legend-purple"></span> Central Lincoln PUD<br/>
-        <span class="legend-icon legend-red"></span> Coos-Curry Electric Cooperative
-      </div>
+      <div class="legend-eyebrow">Customers Without Power</div>
+      <p class="legend-hint">Select a county to view outage counts by utility.</p>
 
-      <div class="meters-caption">
-        <strong>Select a County Below</strong><br/>
-        Click a county below to display the number of customers without power by utility.
-      </div>
-
-      <!-- Douglas County -->
-      <details id="douglas">
-        <summary class="county-summary">
-          <span class="legend-icon legend-blue" style="background:#7ea253;"></span>
-          Douglas County
-        </summary>
-        <div class="county-section" data-county="Douglas County">
+      <div class="county-list">
+        <!-- Douglas County -->
+        <details id="douglas" data-county="Douglas County">
+          <summary>
+            <span class="county-dot" style="background:#7ea253;"></span>
+            <span class="county-name">Douglas County</span>
+            <span class="county-badge zero" id="badge-total-douglas">0</span>
+          </summary>
           <table class="meters-table">
             <tbody>
               <tr class="utility-row">
                 <td>Pacific Power</td>
-                <td id="meters-pacific-douglas" class="align-right">0</td>
+                <td id="meters-pacific-douglas" class="zero">0</td>
               </tr>
               <tr class="utility-row">
                 <td>Douglas Electric</td>
-                <td id="meters-dec-douglas" class="align-right">0</td>
+                <td id="meters-dec-douglas" class="zero">0</td>
               </tr>
               <tr class="utility-row">
                 <td>Central Lincoln</td>
-                <td id="meters-clpud-douglas" class="align-right">0</td>
+                <td id="meters-clpud-douglas" class="zero">0</td>
               </tr>
               <tr class="table-total">
-                <td><b>Total</b></td>
-                <td id="meters-total-douglas" class="align-right"><b>0</b></td>
+                <td>Total</td>
+                <td id="meters-total-douglas" class="zero">0</td>
               </tr>
             </tbody>
           </table>
-        </div>
-      </details>
+        </details>
 
-      <!-- Coos County -->
-      <details id="coos">
-        <summary class="county-summary">
-          <span class="legend-icon legend-red"></span>
-          Coos County
-        </summary>
-        <div class="county-section coos" data-county="Coos County">
+        <!-- Coos County -->
+        <details id="coos" data-county="Coos County">
+          <summary>
+            <span class="county-dot" style="background:#e74c3c;"></span>
+            <span class="county-name">Coos County</span>
+            <span class="county-badge zero" id="badge-total-coos">0</span>
+          </summary>
           <table class="meters-table">
             <tbody>
               <tr class="utility-row">
                 <td>Pacific Power</td>
-                <td id="meters-pacific-coos" class="align-right">0</td>
+                <td id="meters-pacific-coos" class="zero">0</td>
               </tr>
               <tr class="utility-row">
                 <td>Coos-Curry Electric</td>
-                <td id="meters-cce-coos" class="align-right">0</td>
+                <td id="meters-cce-coos" class="zero">0</td>
               </tr>
               <tr class="utility-row">
                 <td>Central Lincoln</td>
-                <td id="meters-clpud-coos" class="align-right">0</td>
+                <td id="meters-clpud-coos" class="zero">0</td>
               </tr>
               <tr class="table-total">
-                <td><b>Total</b></td>
-                <td id="meters-total-coos" class="align-right"><b>0</b></td>
+                <td>Total</td>
+                <td id="meters-total-coos" class="zero">0</td>
               </tr>
             </tbody>
           </table>
-        </div>
-      </details>
+        </details>
 
-      <!-- Jackson County -->
-      <details id="jackson">
-        <summary class="county-summary">
-          <span class="legend-icon legend-orange" style="background:#068D9D;"></span>
-          Jackson County
-        </summary>
-        <div class="county-section jackson" data-county="Jackson County">
+        <!-- Jackson County -->
+        <details id="jackson" data-county="Jackson County">
+          <summary>
+            <span class="county-dot" style="background:#068D9D;"></span>
+            <span class="county-name">Jackson County</span>
+            <span class="county-badge zero" id="badge-total-jackson">0</span>
+          </summary>
           <table class="meters-table">
             <tbody>
               <tr class="utility-row">
                 <td>Pacific Power</td>
-                <td id="meters-pacific-jackson" class="align-right">0</td>
+                <td id="meters-pacific-jackson" class="zero">0</td>
               </tr>
               <tr class="table-total">
-                <td><b>Total</b></td>
-                <td id="meters-total-jackson" class="align-right"><b>0</b></td>
+                <td>Total</td>
+                <td id="meters-total-jackson" class="zero">0</td>
               </tr>
             </tbody>
           </table>
-        </div>
-      </details>
+        </details>
 
-      <!-- Josephine County -->
-      <details id="josephine">
-        <summary class="county-summary">
-          <span class="legend-icon legend-purple"></span>
-          Josephine County
-        </summary>
-        <div class="county-section josephine" data-county="Josephine County">
+        <!-- Josephine County -->
+        <details id="josephine" data-county="Josephine County">
+          <summary>
+            <span class="county-dot" style="background:#53599A;"></span>
+            <span class="county-name">Josephine County</span>
+            <span class="county-badge zero" id="badge-total-josephine">0</span>
+          </summary>
           <table class="meters-table">
             <tbody>
               <tr class="utility-row">
                 <td>Pacific Power</td>
-                <td id="meters-pacific-josephine" class="align-right">0</td>
+                <td id="meters-pacific-josephine" class="zero">0</td>
               </tr>
               <tr class="table-total">
-                <td><b>Total</b></td>
-                <td id="meters-total-josephine" class="align-right"><b>0</b></td>
+                <td>Total</td>
+                <td id="meters-total-josephine" class="zero">0</td>
               </tr>
             </tbody>
           </table>
-        </div>
-      </details>
+        </details>
 
-      <!-- Klamath County -->
-      <details id="klamath">
-        <summary class="county-summary">
-          <span class="legend-icon legend-orange"></span>
-          Klamath County
-        </summary>
-        <div class="county-section" style="border-left-color:#E67E22; background:#FDEBD0;" data-county="Klamath County">
+        <!-- Klamath County -->
+        <details id="klamath" data-county="Klamath County">
+          <summary>
+            <span class="county-dot" style="background:#E67E22;"></span>
+            <span class="county-name">Klamath County</span>
+            <span class="county-badge zero" id="badge-total-klamath">0</span>
+          </summary>
           <table class="meters-table">
             <tbody>
               <tr class="utility-row">
                 <td>Pacific Power</td>
-                <td id="meters-pacific-klamath" class="align-right">0</td>
+                <td id="meters-pacific-klamath" class="zero">0</td>
               </tr>
               <tr class="table-total">
-                <td><b>Total</b></td>
-                <td id="meters-total-klamath" class="align-right"><b>0</b></td>
+                <td>Total</td>
+                <td id="meters-total-klamath" class="zero">0</td>
               </tr>
             </tbody>
           </table>
-        </div>
-      </details>
+        </details>
+      </div>
 
-      <div class="legend-blurb">
-        This map shows the general location of an outage and the number of customers without power.<br/>
-        The map will not show specific addresses that are without power for safety reasons.<br/>
-        We fetch fresh data every 30 seconds and events will update on the map in realtime.<br/>
+      <div class="legend-footnote">
+        <p>Shows the general location and customer count of an outage - not exact addresses, for resident safety.</p>
+        <p>Data refreshes every 30 seconds.</p>
       </div>
     </div>
 
-    <div id="legend-content-odot" style="display:none;">
-      <div class="legend-title">ODOT Traffic Legend</div>
-      <div style="margin-bottom:8px;">
-        <span style="vertical-align:middle; margin-right:4px;">
-          <!-- No Delay/Informational SVG -->
-          <svg viewBox="0 0 64 64" width="18" height="18"><rect x="12" y="12" width="40" height="40" fill="#fff" stroke="#444" stroke-width="4"/></svg>
-        </span>
-        No Delay/Informational<br>
-        <span style="vertical-align:middle; margin-right:4px;">
-          <!-- Minor Delay SVG -->
-          <svg viewBox="0 0 64 64" width="18" height="18"><rect x="12" y="12" width="40" height="40" fill="#fff" stroke="#444" stroke-width="4"/><rect x="12" y="32" width="40" height="12" fill="#e74c3c"/></svg>
-        </span>
-        Minor Delay<br>
-        <span style="vertical-align:middle; margin-right:4px;">
-          <!-- Major Delay / Closure SVG: Red box with white X -->
-          <svg viewBox="0 0 64 64" width="18" height="18">
-            <rect x="12" y="12" width="40" height="40" fill="#e74c3c" stroke="#c0392b" stroke-width="4"/>
-            <line x1="20" y1="20" x2="44" y2="44" stroke="#fff" stroke-width="6"/>
-            <line x1="44" y1="20" x2="20" y2="44" stroke="#fff" stroke-width="6"/>
-          </svg>
-        </span>
-        Major Delay / Closure<br>
-        <span style="vertical-align:middle; margin-right:4px;">
-          <!-- Crash SVG -->
-          <svg viewBox="0 0 64 64" width="18" height="18">
-            <rect x="16" y="32" width="32" height="14" rx="4" fill="#666"/>
-            <rect x="24" y="26" width="16" height="10" rx="2" fill="#bbb"/>
-            <circle cx="22" cy="50" r="4" fill="#222"/>
-            <circle cx="42" cy="50" r="4" fill="#222"/>
-            <polygon points="14,38 8,34 12,32 8,28 15,31 18,26 19,33 26,31 21,36 25,40 18,38 17,45" fill="#ff5252" stroke="#a00" stroke-width="1"/>
-          </svg>
-        </span>
-        Crash<br>
-        <span style="vertical-align:middle; margin-right:4px;">
-          <!-- Cone SVG (Construction/Obstruction) -->
-          <svg viewBox="0 0 64 64" width="18" height="18"><polygon points="32,8 16,56 48,56" fill="#f39c12" stroke="#e67e22" stroke-width="4"/><rect x="24" y="36" width="16" height="4" fill="#fff"/><rect x="28" y="44" width="8"  height="4" fill="#fff"/></svg>
-        </span>
-        Construction/Obstruction<br>
-        <span style="vertical-align:middle; margin-right:4px;">
-          <!-- DMS Message Sign (use color as on map) -->
-          <svg width="28" height="18" viewBox="0 0 38 22"><rect x="2" y="2" width="34" height="18" rx="4" fill="#FFD600" stroke="#333" stroke-width="3"/><rect x="6" y="7" width="26" height="8" rx="2" fill="#111" /><rect x="14" y="16" width="10" height="2" rx="1" fill="#555"/></svg>
-        </span>
-        DMS Message Sign<br>
-        <span style="vertical-align:middle; margin-right:4px;">
-          <!-- DMS Message Sign (not lit) -->
-          <svg width="28" height="18" viewBox="0 0 38 22">
-            <rect x="2" y="2" width="34" height="18" rx="4" fill="#222" stroke="#333" stroke-width="3"/>
-            <rect x="6" y="7" width="26" height="8" rx="2" fill="#111" />
-            <rect x="14" y="16" width="10" height="2" rx="1" fill="#555"/>
-          </svg>
-        </span>
-        DMS Message Sign (not lit)<br>
-        <span style="vertical-align:middle; margin-right:4px;">
-          <!-- Hazard/Obstruction (Default yellow triangle) SVG -->
-          <svg viewBox="0 0 64 64" width="18" height="18">
-            <polygon points="32,4 4,60 60,60" fill="#f1c40f" stroke="#f39c12" stroke-width="4"/>
-            <rect x="30" y="20" width="4" height="18" fill="#fff"/>
-            <circle cx="32" cy="50" r="4" fill="#fff"/>
-          </svg>
-        </span>
-        Hazard / Obstruction<br>
+    <div class="legend-body" id="legend-content-odot" style="display:none;">
+      <div class="legend-eyebrow">Traffic Conditions</div>
+      <ul class="legend-icon-list">
+        <li>
+          <span class="legend-icon-slot">
+            <svg viewBox="0 0 64 64" width="18" height="18"><rect x="12" y="12" width="40" height="40" fill="#fff" stroke="#444" stroke-width="4"/></svg>
+          </span>
+          No Delay / Informational
+        </li>
+        <li>
+          <span class="legend-icon-slot">
+            <svg viewBox="0 0 64 64" width="18" height="18"><rect x="12" y="12" width="40" height="40" fill="#fff" stroke="#444" stroke-width="4"/><rect x="12" y="32" width="40" height="12" fill="#e74c3c"/></svg>
+          </span>
+          Minor Delay
+        </li>
+        <li>
+          <span class="legend-icon-slot">
+            <svg viewBox="0 0 64 64" width="18" height="18">
+              <rect x="12" y="12" width="40" height="40" fill="#e74c3c" stroke="#c0392b" stroke-width="4"/>
+              <line x1="20" y1="20" x2="44" y2="44" stroke="#fff" stroke-width="6"/>
+              <line x1="44" y1="20" x2="20" y2="44" stroke="#fff" stroke-width="6"/>
+            </svg>
+          </span>
+          Major Delay / Closure
+        </li>
+        <li>
+          <span class="legend-icon-slot">
+            <svg viewBox="0 0 64 64" width="18" height="18">
+              <rect x="16" y="32" width="32" height="14" rx="4" fill="#666"/>
+              <rect x="24" y="26" width="16" height="10" rx="2" fill="#bbb"/>
+              <circle cx="22" cy="50" r="4" fill="#222"/>
+              <circle cx="42" cy="50" r="4" fill="#222"/>
+              <polygon points="14,38 8,34 12,32 8,28 15,31 18,26 19,33 26,31 21,36 25,40 18,38 17,45" fill="#ff5252" stroke="#a00" stroke-width="1"/>
+            </svg>
+          </span>
+          Crash
+        </li>
+        <li>
+          <span class="legend-icon-slot">
+            <svg viewBox="0 0 64 64" width="18" height="18"><polygon points="32,8 16,56 48,56" fill="#f39c12" stroke="#e67e22" stroke-width="4"/><rect x="24" y="36" width="16" height="4" fill="#fff"/><rect x="28" y="44" width="8"  height="4" fill="#fff"/></svg>
+          </span>
+          Construction / Obstruction
+        </li>
+        <li>
+          <span class="legend-icon-slot">
+            <svg width="28" height="18" viewBox="0 0 38 22"><rect x="2" y="2" width="34" height="18" rx="4" fill="#FFD600" stroke="#333" stroke-width="3"/><rect x="6" y="7" width="26" height="8" rx="2" fill="#111" /><rect x="14" y="16" width="10" height="2" rx="1" fill="#555"/></svg>
+          </span>
+          DMS Message Sign
+        </li>
+        <li>
+          <span class="legend-icon-slot">
+            <svg width="28" height="18" viewBox="0 0 38 22">
+              <rect x="2" y="2" width="34" height="18" rx="4" fill="#222" stroke="#333" stroke-width="3"/>
+              <rect x="6" y="7" width="26" height="8" rx="2" fill="#111" />
+              <rect x="14" y="16" width="10" height="2" rx="1" fill="#555"/>
+            </svg>
+          </span>
+          DMS Message Sign (not lit)
+        </li>
+        <li>
+          <span class="legend-icon-slot">
+            <svg viewBox="0 0 64 64" width="18" height="18">
+              <polygon points="32,4 4,60 60,60" fill="#f1c40f" stroke="#f39c12" stroke-width="4"/>
+              <rect x="30" y="20" width="4" height="18" fill="#fff"/>
+              <circle cx="32" cy="50" r="4" fill="#fff"/>
+            </svg>
+          </span>
+          Hazard / Obstruction
+        </li>
+      </ul>
+
+      <div class="legend-footnote">
+        <p><strong>Traffic layers:</strong> incidents, cameras, and message signs.</p>
+        <p>Click any icon on the map for details.</p>
       </div>
-      <div>
-        <b>Traffic Layers:</b> ODOT traffic incidents, cameras, and message signs.<br>
-        <b>Tip:</b> Click an icon for details.
+    </div>
+
+    <div class="legend-body" id="legend-content-wildfire" style="display:none;">
+      <div class="legend-eyebrow">Active Wildfires</div>
+      <ul class="legend-swatch-list">
+        <li><span class="legend-swatch" style="background:#e74c3c; border-radius:50%;"></span>Uncontained / &lt;25%</li>
+        <li><span class="legend-swatch" style="background:#e67e22; border-radius:50%;"></span>25–49% contained</li>
+        <li><span class="legend-swatch" style="background:#f1c40f; border-radius:50%;"></span>50–74% contained</li>
+        <li><span class="legend-swatch" style="background:#7ea253; border-radius:50%;"></span>75%+ contained</li>
+      </ul>
+
+      <div class="legend-footnote">
+        <p>Click a marker for the fire's name, acreage, containment, and discovery date.</p>
+        <p>Source: National Interagency Fire Center. Refreshes every 15 minutes.</p>
       </div>
     </div>
   </div>

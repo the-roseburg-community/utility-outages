@@ -2,40 +2,75 @@
    Header tweaks (new)
 ------------------------------------------------------------------------ */
 
-header {
+.site-header {
   background-color: #7ea253;
-  padding: 0.75rem 1rem;
-  text-align: center;
+  flex: none;
 }
 
-header .logo {
+.site-header .header-inner {
+  width: 100%;
+  min-height: 64px;
+  padding: 10px 16px;
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.site-header .brand {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  text-decoration: none;
+}
+
+.site-header .logo {
   display: block;
-  margin: 0 auto 0.5rem;
-  height: 36px;
+  height: 40px;
   width: auto;
+  object-fit: contain;
+}
+
+.site-header .header-text {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  text-align: center;
+  line-height: 1.15;
 }
 
 .header-text .site-title {
   color: white;
-  font-size: 1.2rem;
-  font-weight: 600;
-  margin-bottom: 0.2rem;
-}
-
-.header-text .site-subtitle {
-  color: #e0f4d9;
-  font-size: 1rem;
-  margin-bottom: 0.3rem;
+  font-size: 1.28rem;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  margin: 0 8px 2px;
 }
 
 .header-text .site-link a {
   color: #cce8c1;
-  font-size: 0.85rem;
+  font-size: 0.95rem;
+  font-weight: 500;
   text-decoration: none;
+  opacity: 0.95;
 }
 
 .header-text .site-link a:hover {
   text-decoration: underline;
+  opacity: 1;
+}
+
+@media (max-width: 600px) {
+  .site-header .header-text {
+    position: static;
+    transform: none;
+    margin-top: 4px;
+  }
+  .site-header .header-inner {
+    flex-direction: column;
+    align-items: center;
+    min-height: 0;
+    padding: 8px 16px;
+  }
 }
 
 /* ------------------------------------------------------------------------
@@ -69,101 +104,165 @@ body {
 
 .legend {
   position: absolute;
-  bottom: 24px;
+  bottom: 66px;
   right: 18px;
   z-index: 500;
-  background: white;
-  border: 1px solid #d3d3d3;
+  width: 300px;
+  max-width: calc(100vw - 36px);
+  max-height: calc(100vh - 182px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid #e4e4e4;
   border-radius: 10px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.10);
-  padding: 10px 14px;
-  max-width: 410px;
-  min-width: 210px;
-  font-size: 1rem;
+  box-shadow: 0 1px 2px rgba(20, 20, 20, 0.06), 0 8px 24px rgba(20, 20, 20, 0.10);
+  font-size: 0.8125rem;
+  line-height: 1.42;
   color: #333;
   transition: opacity 0.15s;
 }
 
-.legend-title {
-  font-size: 1.08em;
-  font-weight: bold;
-  color: #5a5a5a;
-  margin-bottom: 0.3em;
+.legend-body {
+  flex: 1 1 0;
+  padding: 14px 16px 12px;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.legend-eyebrow {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #9a9a9a;
+  margin: 16px 0 8px;
+}
+
+.legend-eyebrow:first-child {
+  margin-top: 0;
+}
+
+.legend-divider {
+  height: 1px;
+  background: #ececec;
+  margin: 14px 0;
 }
 
 /* ------------------------------------------------------------------------
-   Legend “mini–box” around icon list + separator
+   Utility swatch list
 ------------------------------------------------------------------------ */
 
-.legend-box {
-  background: #fafafa;
-  border: 1px solid #e0e0e0;
-  border-radius: 6px;
-  padding: 8px 12px;
-  margin-bottom: 8px;
+.legend-swatch-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
 }
 
-.legend-box .legend-icon {
-  margin-right: 6px;
+.legend-swatch-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+  color: #3a3a3a;
 }
 
-/* ------------------------------------------------------------------------
-   Legend icons
------------------------------------------------------------------------- */
-
-.legend-icon {
+.legend-swatch {
   display: inline-block;
-  border-radius: 50%;
-  width: 1em;
-  height: 1em;
-  border: 1.5px solid #222;
-  vertical-align: middle;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  flex: none;
 }
 
-.legend-blue   { background: #007bff; }
-.legend-orange { background: #ffa500; }
-.legend-purple { background: #AA40FF; }
-.legend-red    { background: #e74c3c; }
-
 /* ------------------------------------------------------------------------
-   Explanation caption
+   ODOT icon list
 ------------------------------------------------------------------------ */
 
-.meters-caption {
-  font-size: 0.95em;
-  color: #486030;
-  background: #edf5e7;
-  padding: 6px 8px;
+.legend-icon-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.legend-icon-list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 0;
+  color: #3a3a3a;
+}
+
+.legend-icon-slot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  flex: none;
+}
+
+/* ------------------------------------------------------------------------
+   Hint / helper text
+------------------------------------------------------------------------ */
+
+.legend-hint {
+  font-size: 0.76rem;
+  color: #8a8a8a;
+  margin: 0 0 8px;
+}
+
+/* ------------------------------------------------------------------------
+   County list
+------------------------------------------------------------------------ */
+
+.county-list {
+  border-top: 1px solid #ececec;
+}
+
+.county-list details {
+  border-bottom: 1px solid #ececec;
+}
+
+.county-list summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 4px;
+  margin: 0 -4px;
   border-radius: 6px;
-  margin: 4px 0 9px;
-  border-left: 4px solid #7ea253;
-  line-height: 1.42;
-  text-align: center;
 }
 
-/* ------------------------------------------------------------------------
-   County sections
------------------------------------------------------------------------- */
-
-.county-section {
-  margin: 12px 0 10px;
-  border-left: 6px solid #7ea253;
-  border-radius: 5px 0 0 5px;
-  background: #f6faef;
-  padding: 7px 7px 5px 13px;
+.county-list summary:hover {
+  background: #f7f7f7;
 }
 
-/* overrides for Jackson/​Josephine/​Coos */
-.county-section.jackson   { border-left-color: #068D9D; background: #eaf9fa; }
-.county-section.josephine { border-left-color: #53599A; background: #f2f1fb; }
-.county-section.coos      { border-left-color: #e74c3c; background: #fdecea; }
+.county-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: none;
+}
 
 .county-name {
-  font-weight: 700;
-  font-size: 1.04em;
-  letter-spacing: 0.02em;
-  margin: 2px 0 3px;
-  color: #444;
+  flex: 1;
+  font-weight: 600;
+  font-size: 0.84rem;
+  color: #333;
+}
+
+.county-badge {
+  font-variant-numeric: tabular-nums;
+  font-size: 0.76rem;
+  font-weight: 600;
+  min-width: 1.4em;
+  text-align: right;
+  color: #c0392b;
+}
+
+.county-badge.zero {
+  color: #b3b3b3;
+  font-weight: 500;
 }
 
 /* ------------------------------------------------------------------------
@@ -173,37 +272,68 @@ body {
 .meters-table {
   width: 100%;
   border-collapse: collapse;
-  margin: 4px 0 0.4em;
-  font-size: 0.96em;
+  margin: 0 0 10px;
+  font-size: 0.8rem;
   table-layout: fixed;
 }
 
 .meters-table td {
-  padding: 3px 7px;
+  padding: 3px 2px 3px 18px;
+  color: #767676;
 }
 
 .meters-table td:first-child {
-  width: 60%;
+  width: 62%;
 }
 
 .meters-table td:last-child {
-  width: 40%;
+  width: 38%;
   text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: #c0392b;
+  font-weight: 600;
 }
 
-.utility-row {
-  border-bottom: 1px solid #f0f0f0;
+.meters-table td:last-child.zero {
+  color: #a8a8a8;
+  font-weight: 400;
 }
 
-.table-total {
-  font-weight: bold;
-  border-top: 2px solid #ddd;
-  background: #fff6f6;
+.utility-row td {
+  border-bottom: 1px solid #f3f3f3;
 }
 
-.table-total .align-right {
-  color: #d12c2c;
-  font-size: 1.08em;
+.table-total td {
+  padding-top: 6px;
+  border-bottom: none;
+  border-top: 1px solid #e2e2e2;
+  font-weight: 700;
+  color: #444;
+}
+
+.table-total td:last-child {
+  font-size: 0.86rem;
+}
+
+/* ------------------------------------------------------------------------
+   Footnotes
+------------------------------------------------------------------------ */
+
+.legend-footnote {
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px solid #ececec;
+  font-size: 0.72rem;
+  line-height: 1.55;
+  color: #9a9a9a;
+}
+
+.legend-footnote p {
+  margin: 0 0 4px;
+}
+
+.legend-footnote p:last-child {
+  margin-bottom: 0;
 }
 
 /* ------------------------------------------------------------------------
@@ -215,23 +345,24 @@ body {
   bottom: 24px;
   right: 18px;
   z-index: 600;
-  background: white;
-  padding: 3px 10px 3px 7px;
+  background: #fff;
+  padding: 7px 12px;
   border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-  font-size: 0.96em;
-  border: 1px solid #d3d3d3;
+  box-shadow: 0 1px 2px rgba(20, 20, 20, 0.06), 0 4px 12px rgba(20, 20, 20, 0.08);
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: #444;
+  border: 1px solid #e4e4e4;
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   cursor: pointer;
   user-select: none;
-  min-width: 115px;
 }
 
 .legend-toggle input[type=checkbox] {
   accent-color: #7ea253;
-  margin: 0 6px 0 0;
+  margin: 0;
 }
 
 /* ------------------------------------------------------------------------
@@ -257,27 +388,17 @@ body {
 
 @media (max-width: 600px) {
   .legend {
-    font-size: 0.97rem;
-    padding: 7px;
-    bottom: 10px;
-    right: 4px;
-    max-width: 97vw;
+    width: auto;
+    left: 12px;
+    right: 12px;
+    bottom: 52px;
+    /* Leave clearance above for the stacked header + Leaflet's top-left
+       zoom control, which sit well below 100vh on short mobile viewports. */
+    max-height: calc(100vh - 320px);
   }
   .legend-toggle {
-    padding: 2px 6px 2px 5px;
     bottom: 10px;
-    right: 4px;
-    font-size: 0.93em;
-    min-width: 105px;
-  }
-  .county-section {
-    padding: 6px 3px 4px 9px;
-    margin-top: 10px;
-  }
-  .meters-caption {
-    font-size: 0.97em;
-    padding: 4px 5px;
-    margin-bottom: 7px;
+    right: 12px;
   }
 }
 
@@ -330,29 +451,60 @@ details[open] summary::before { transform: rotate(90deg); }
 /* Tabs */
 .legend-tabs {
   display: flex;
-  gap: 8px;
-  margin-bottom: 8px;
+  flex: none;
+  gap: 18px;
+  padding: 12px 16px 0;
+  border-bottom: 1px solid #ececec;
 }
 .legend-tab {
-  background: #ededed;
-  border: 1px solid #b2b2b2;
-  border-radius: 6px 6px 0 0;
-  padding: 2px 18px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 0 0 9px;
   cursor: pointer;
-  font-weight: 600;
-  color: #444;
-  transition: background 0.2s;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #9a9a9a;
+  transition: color 0.15s, border-color 0.15s;
   outline: none;
 }
-.legend-tab-active {
-  background: #fff;
-  border-bottom: 1px solid #fff;
-  color: #222;
-  box-shadow: 0 -1px 4px rgba(0,0,0,0.03);
+.legend-tab:hover {
+  color: #5c7a3d;
+}
+.legend-tab-active,
+.legend-tab-active:hover {
+  color: #4f6b34;
+  border-bottom-color: #7ea253;
 }
 
 #layers-panel label { cursor:pointer; font-size:16px; }
 #layers-panel input[type="checkbox"] { margin-right: 7px; }
 #layers-button button:focus { outline: 2px solid #7ea253; }
+
+/* ------------------------------------------------------------------------
+   Layers control (anchored to #map, top-right, clear of Leaflet's
+   top-left zoom control regardless of header height)
+------------------------------------------------------------------------ */
+
+.map-control-button {
+  position: absolute;
+  right: 12px;
+  top: 12px;
+  z-index: 1001;
+}
+
+.map-control-panel {
+  position: absolute;
+  right: 12px;
+  top: 52px;
+  z-index: 1002;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 4px 16px #0002;
+  padding: 14px 24px;
+  min-width: 170px;
+}
 
 

@@ -10,7 +10,7 @@
  *
  * ----------------------------------------------------------------------------
  *  This file provides the main client-side logic for the interactive map at
- *  https://outages.roseburgscanner.com
+ *  https://outages.theroseburgreceiver.com
  *
  *  FEATURES:
  *   - Layer toggling and persistent UI settings with localStorage
@@ -37,10 +37,10 @@
  *
  *      The Roseburg Receiver
  *      Douglas County Community Emergency Information Project
- *      Roseburg, Oregon — https://roseburgscanner.com
+ *      Roseburg, Oregon - https://theroseburgreceiver.com
  *      Community, not-for-profit, and open to public contribution.
  *
- *  Contact & Info: https://www.roseburgscanner.com/about/#contact-the-roseburg-receiver
+ *  Contact & Info: https://www.theroseburgreceiver.com/about/#contact-the-roseburg-receiver
  *
  * ============================================================================
  /**
@@ -49,7 +49,7 @@
  * =============================================================================
  *
  *  This script powers the interactive Leaflet.js-based utility map at
- *  https://outages.roseburgscanner.com, providing real-time visualization
+ *  https://outages.theroseburgreceiver.com, providing real-time visualization
  *  of power outages, ODOT traffic incidents, road cameras, DMS message boards,
  *  and Oregon mileposts for Douglas County and surrounding regions.
  *
@@ -182,6 +182,7 @@ const odotLayer = L.layerGroup();
 const cctvLayer = L.layerGroup();
 const dmsLayer  = L.layerGroup();
 const milepostLayer = L.layerGroup();
+const wildfireLayer = L.layerGroup();
 
 // ---- SVG ICON HELPERS ----
 function svgIcon(svgString, size = [24,24]) {
@@ -282,32 +283,44 @@ const totals = {
   josephine: { pacific: 0 },
   klamath:   { pacific: 0 }
 };
+function setMeter(id, value) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = value.toLocaleString();
+  el.classList.toggle('zero', value === 0);
+}
+
 function updateTotalsDisplay() {
   // Coos
-  document.getElementById('meters-pacific-coos').textContent = totals.coos.pacific.toLocaleString();
-  document.getElementById('meters-cce-coos').textContent     = totals.coos.cce.toLocaleString();
-  document.getElementById('meters-clpud-coos').textContent  = totals.coos.clpud.toLocaleString();
-  document.getElementById('meters-total-coos').textContent  =
-    (totals.coos.pacific + totals.coos.cce + totals.coos.clpud).toLocaleString();
+  setMeter('meters-pacific-coos', totals.coos.pacific);
+  setMeter('meters-cce-coos', totals.coos.cce);
+  setMeter('meters-clpud-coos', totals.coos.clpud);
+  const coosTotal = totals.coos.pacific + totals.coos.cce + totals.coos.clpud;
+  setMeter('meters-total-coos', coosTotal);
+  setMeter('badge-total-coos', coosTotal);
 
- // Douglas
-  document.getElementById('meters-pacific-douglas').textContent = totals.douglas.pacific.toLocaleString();
-  document.getElementById('meters-dec-douglas').textContent     = totals.douglas.dec.toLocaleString();
-  document.getElementById('meters-clpud-douglas').textContent   = totals.douglas.clpud.toLocaleString();
-  document.getElementById('meters-total-douglas').textContent   =
-    (totals.douglas.pacific + totals.douglas.dec + totals.douglas.clpud).toLocaleString();
+  // Douglas
+  setMeter('meters-pacific-douglas', totals.douglas.pacific);
+  setMeter('meters-dec-douglas', totals.douglas.dec);
+  setMeter('meters-clpud-douglas', totals.douglas.clpud);
+  const douglasTotal = totals.douglas.pacific + totals.douglas.dec + totals.douglas.clpud;
+  setMeter('meters-total-douglas', douglasTotal);
+  setMeter('badge-total-douglas', douglasTotal);
 
   // Jackson
-  document.getElementById('meters-pacific-jackson').textContent = totals.jackson.pacific.toLocaleString();
-  document.getElementById('meters-total-jackson').textContent   = totals.jackson.pacific.toLocaleString();
+  setMeter('meters-pacific-jackson', totals.jackson.pacific);
+  setMeter('meters-total-jackson', totals.jackson.pacific);
+  setMeter('badge-total-jackson', totals.jackson.pacific);
 
   // Josephine
-  document.getElementById('meters-pacific-josephine').textContent = totals.josephine.pacific.toLocaleString();
-  document.getElementById('meters-total-josephine').textContent   = totals.josephine.pacific.toLocaleString();
+  setMeter('meters-pacific-josephine', totals.josephine.pacific);
+  setMeter('meters-total-josephine', totals.josephine.pacific);
+  setMeter('badge-total-josephine', totals.josephine.pacific);
 
   // Klamath
-  document.getElementById('meters-pacific-klamath').textContent = totals.klamath.pacific.toLocaleString();
-  document.getElementById('meters-total-klamath').textContent   = totals.klamath.pacific.toLocaleString();
+  setMeter('meters-pacific-klamath', totals.klamath.pacific);
+  setMeter('meters-total-klamath', totals.klamath.pacific);
+  setMeter('badge-total-klamath', totals.klamath.pacific);
 }
 function pointInCounty(lat, lon, county) {
   const poly = polygons[county];
@@ -521,35 +534,65 @@ function fetchCameras() {
   fetch('/odot-cctv')
     .then(r => r.json())
     .then(data => {
-      (data.CCTVInventoryRequest || []).forEach(cam => {
-        const cameraIcon = L.divIcon({
-          html: `<svg viewBox="0 0 32 32" width="38" height="38">
-            <rect x="7" y="10" width="18" height="10" rx="3" fill="#fff" stroke="#333" stroke-width="2"/>
-            <circle cx="16" cy="15" r="3" fill="#7ea253" stroke="#555" stroke-width="1"/>
-            <rect x="13" y="22" width="6" height="2" rx="1" fill="#333"/>
-            <rect x="14" y="24" width="4" height="2" rx="1" fill="#555"/>
-          </svg>`,
-          className: "",
-          iconSize: [38, 38],
-          iconAnchor: [19, 19]
+      const cams = data.CCTVInventoryRequest || [];
+
+      // Multiple cameras often share the same (or near-identical) coordinates
+      // at one physical location (e.g. cams facing opposite directions on the
+      // same pole). Plotted at the exact same point, their markers stack
+      // perfectly and only the topmost one is visible/clickable. Group by
+      // rounded coordinate and spread same-location cameras in a small circle
+      // so each stays individually visible.
+      const OFFSET_DEGREES = 0.00006; // roughly 6m at Oregon latitude
+      const groups = new Map();
+      cams.forEach(cam => {
+        const lat = parseFloat(cam.latitude);
+        const lon = parseFloat(cam.longitude);
+        if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+        const coordKey = `${lat.toFixed(4)},${lon.toFixed(4)}`;
+        if (!groups.has(coordKey)) groups.set(coordKey, []);
+        groups.get(coordKey).push({ cam, lat, lon });
+      });
+
+      groups.forEach(group => {
+        group.forEach((entry, i) => {
+          const cam = entry.cam;
+          let lat = entry.lat;
+          let lon = entry.lon;
+          if (group.length > 1) {
+            const angle = (2 * Math.PI * i) / group.length;
+            lat += OFFSET_DEGREES * Math.cos(angle);
+            lon += (OFFSET_DEGREES * Math.sin(angle)) / Math.cos(lat * Math.PI / 180);
+          }
+
+          const cameraIcon = L.divIcon({
+            html: `<svg viewBox="0 0 32 32" width="38" height="38">
+              <rect x="7" y="10" width="18" height="10" rx="3" fill="#fff" stroke="#333" stroke-width="2"/>
+              <circle cx="16" cy="15" r="3" fill="#7ea253" stroke="#555" stroke-width="1"/>
+              <rect x="13" y="22" width="6" height="2" rx="1" fill="#333"/>
+              <rect x="14" y="24" width="4" height="2" rx="1" fill="#555"/>
+            </svg>`,
+            className: "",
+            iconSize: [38, 38],
+            iconAnchor: [19, 19]
+          });
+          const popupKey = cam['device-id'] || cam['device-name'];
+          const marker = L.marker([lat, lon], {
+            icon: cameraIcon,
+            deviceId: popupKey, popupKey, layerType: 'cctv'
+          });
+          marker.bindPopup(`
+            <div style="max-width:340px;">
+              <strong>${cam['device-name']}</strong><br/>
+              <img src="${cam['cctv-url'].replace(/^http:/, 'https:')}"
+                  alt="Camera image"
+                  style="width:320px; height:auto; border:2px solid #7ea253; display:block; margin:6px auto;" />
+              <em>${cam['cctv-other'] || ''}</em><br/>
+              <small>Last update: ${cam['last-update-time'] ? new Date(cam['last-update-time']).toLocaleString() : 'n/a'}</small>
+            </div>
+          `, { maxWidth: 340 });
+          cctvLayer.addLayer(marker);
+          markersByKey.set(popupKey, marker);
         });
-        const popupKey = cam['device-id'] || cam['device-name'];
-        const marker = L.marker([cam.latitude, cam.longitude], {
-          icon: cameraIcon,
-          deviceId: popupKey, popupKey, layerType: 'cctv'
-        });
-        marker.bindPopup(`
-          <div style="max-width:340px;">
-            <strong>${cam['device-name']}</strong><br/>
-            <img src="${cam['cctv-url'].replace(/^http:/, 'https:')}"
-                alt="Camera image"
-                style="width:320px; height:auto; border:2px solid #7ea253; display:block; margin:6px auto;" />
-            <em>${cam['cctv-other'] || ''}</em><br/>
-            <small>Last update: ${cam['last-update-time'] ? new Date(cam['last-update-time']).toLocaleString() : 'n/a'}</small>
-          </div>
-        `, { maxWidth: 340 });
-        cctvLayer.addLayer(marker);
-        markersByKey.set(popupKey, marker);
       });
 
       // Reopen if this was the open CCTV popup
@@ -699,6 +742,81 @@ function fetchDmsLayer() {
   }).catch(console.error);
 }
 
+// ---- WILDFIRES ----
+function wildfireColor(pct) {
+  if (pct === null || pct === undefined) return '#e74c3c'; // uncontained/unknown
+  if (pct < 25) return '#e74c3c';
+  if (pct < 50) return '#e67e22';
+  if (pct < 75) return '#f1c40f';
+  return '#7ea253'; // largely/fully contained
+}
+function wildfireIcon(color) {
+  return L.divIcon({
+    html: `<svg viewBox="0 0 42 42" width="36" height="36">
+      <circle cx="21" cy="21" r="18" fill="#fff" stroke="${color}" stroke-width="2.5"/>
+      <svg x="9" y="9" viewBox="0 0 24 24" width="24" height="24">
+        <path fill="${color}" d="M12.963 2.286a.75.75 0 00-1.071-.136 9.742 9.742 0 00-3.539 6.176 7.547 7.547 0 01-1.705-1.715.75.75 0 00-1.152-.082A9 9 0 1015.68 4.534a7.46 7.46 0 01-2.717-2.248zM15.75 14.25a3.75 3.75 0 11-7.313-1.172c.628.465 1.35.81 2.133 1a5.99 5.99 0 011.925-3.545 3.75 3.75 0 013.255 3.717z"/>
+      </svg>
+    </svg>`,
+    className: "",
+    iconSize: [36, 36],
+    iconAnchor: [18, 18]
+  });
+}
+function fetchWildfires() {
+  const markersByKey = new Map();
+
+  beginGuard();
+  wildfireLayer.clearLayers();
+
+  fetch('/wildfires')
+    .then(r => r.json())
+    .then(data => {
+      (data.features || []).forEach(f => {
+        const a = f.attributes || {};
+        const geom = f.geometry;
+        if (!geom || !Number.isFinite(geom.y) || !Number.isFinite(geom.x)) return;
+
+        const contained = a.PercentContained;
+        const color = wildfireColor(contained);
+        const popupKey = `${a.IncidentName}|${a.POOCounty}`;
+        const marker = L.marker([geom.y, geom.x], {
+          icon: wildfireIcon(color),
+          popupKey, layerType: 'wildfire'
+        });
+
+        const acres = typeof a.DailyAcres === 'number' ? a.DailyAcres.toLocaleString() : 'Unknown';
+        const containedText = (contained === null || contained === undefined) ? 'Uncontained' : `${contained}%`;
+        const discovered = a.FireDiscoveryDateTime ? new Date(a.FireDiscoveryDateTime).toLocaleDateString() : 'Unknown';
+
+        marker.bindPopup(`
+          <div style="max-width:260px;">
+            <strong>${a.IncidentName || 'Unnamed Fire'}</strong><br/>
+            <small>${a.POOCounty || ''} County</small>
+            <table style="margin-top:6px; font-size:0.85em; border-collapse:collapse;">
+              <tr><td style="padding-right:10px; color:#666;">Acres</td><td><b>${acres}</b></td></tr>
+              <tr><td style="padding-right:10px; color:#666;">Contained</td><td><b style="color:${color};">${containedText}</b></td></tr>
+              <tr><td style="padding-right:10px; color:#666;">Discovered</td><td>${discovered}</td></tr>
+            </table>
+          </div>
+        `, { maxWidth: 280 });
+
+        wildfireLayer.addLayer(marker);
+        markersByKey.set(popupKey, marker);
+      });
+
+      // Reopen if this was the open wildfire popup
+      if (currentOpen && currentOpen.layer === 'wildfire' &&
+          !userClosedKeys.has(`wildfire|${currentOpen.key}`)) {
+        const m = markersByKey.get(currentOpen.key);
+        if (m) setTimeout(() => m.openPopup(), 0);
+      }
+
+      endGuard();
+    })
+    .catch(console.error);
+}
+
 // ---- DRAW LINE UTILITY (if needed) ----
 function drawLine(wkt) {
   const geojson = wellknown.parse(wkt);
@@ -725,10 +843,12 @@ fetch('/static/filtered_counties.geojson')
     fetchOdotIncidents();
     fetchCameras();
     fetchDmsLayer();
+    fetchWildfires();
     setInterval(fetchOutages, 30000);
     setInterval(fetchOdotIncidents, 60000);
     setInterval(fetchCameras, 5 * 60 * 1000);
     setInterval(fetchDmsLayer, 30000);
+    setInterval(fetchWildfires, 15 * 60 * 1000);
   })
   .catch(console.error);
 
@@ -826,29 +946,22 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 // ---- Legend tab logic ----
-const tabPower = document.getElementById('tab-power');
-const tabOdot = document.getElementById('tab-odot');
-const contentPower = document.getElementById('legend-content-power');
-const contentOdot = document.getElementById('legend-content-odot');
+const legendTabs = Array.from(document.querySelectorAll('.legend-tab'));
 function showTab(which) {
-  if (which === 'power') {
-    contentPower.style.display = '';
-    contentOdot.style.display = 'none';
-    tabPower.classList.add('legend-tab-active');
-    tabOdot.classList.remove('legend-tab-active');
-    localStorage.setItem('legendTab', 'power');
-  } else {
-    contentPower.style.display = 'none';
-    contentOdot.style.display = '';
-    tabPower.classList.remove('legend-tab-active');
-    tabOdot.classList.add('legend-tab-active');
-    localStorage.setItem('legendTab', 'odot');
-  }
+  legendTabs.forEach(tab => {
+    const name = tab.id.replace('tab-', '');
+    const content = document.getElementById('legend-content-' + name);
+    const active = name === which;
+    if (content) content.style.display = active ? '' : 'none';
+    tab.classList.toggle('legend-tab-active', active);
+  });
+  localStorage.setItem('legendTab', which);
 }
-if (tabPower && tabOdot && contentPower && contentOdot) {
-  tabPower.addEventListener('click', () => showTab('power'));
-  tabOdot.addEventListener('click', () => showTab('odot'));
-  const lastTab = localStorage.getItem('legendTab') || 'power';
+if (legendTabs.length) {
+  legendTabs.forEach(tab => {
+    tab.addEventListener('click', () => showTab(tab.id.replace('tab-', '')));
+  });
+  const lastTab = localStorage.getItem('legendTab') || legendTabs[0].id.replace('tab-', '');
   showTab(lastTab);
 }
 
@@ -860,7 +973,8 @@ const layerToggles = {
   odot:   document.getElementById('layer-toggle-odot'),
   cctv:   document.getElementById('layer-toggle-cctv'),
   dms:    document.getElementById('layer-toggle-dms'),
-  mileposts: document.getElementById('layer-toggle-mileposts')
+  mileposts: document.getElementById('layer-toggle-mileposts'),
+  wildfire: document.getElementById('layer-toggle-wildfire')
 };
 function setLayerVisible(layer, visible) {
   if (layer === 'mileposts') {
@@ -874,6 +988,7 @@ function setLayerVisible(layer, visible) {
   else if (layer === 'odot')     visible ? odotLayer.addTo(map)    : map.removeLayer(odotLayer);
   else if (layer === 'cctv')     visible ? cctvLayer.addTo(map)    : map.removeLayer(cctvLayer);
   else if (layer === 'dms')      visible ? dmsLayer.addTo(map)     : map.removeLayer(dmsLayer);
+  else if (layer === 'wildfire') visible ? wildfireLayer.addTo(map): map.removeLayer(wildfireLayer);
   localStorage.setItem(layer + 'Visible', visible ? '1' : '0');
 }
 function updateLayerTogglesFromStorage() {

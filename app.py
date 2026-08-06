@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, render_template, send_from_directory
+from flask import Flask, jsonify, render_template, send_from_directory, Response
 from flask_cors import CORS
 import xml.etree.ElementTree as ET
 import requests
@@ -30,6 +30,17 @@ ODOT_URL = (
 ODOT_CCTV_URL = "https://api.odot.state.or.us/tripcheck/Cctv/Inventory"
 odot_cctv_cache = {"data": None, "timestamp": 0, "error": None}
 ODOT_CCTV_POLL_INTERVAL = 86400  # seconds
+
+# --- Wildfires (Esri ArcGIS Living Atlas, no auth required) ---
+WILDFIRE_URL = (
+    "https://services9.arcgis.com/RHVPKKiFTONKtxq3/arcgis/rest/services/"
+    "USA_Wildfires_v1/FeatureServer/0/query"
+    "?where=POOState%3D%27US-OR%27+AND+IncidentTypeCategory%3D%27WF%27"
+    "&outFields=IncidentName,DailyAcres,PercentContained,POOCounty,FireDiscoveryDateTime"
+    "&returnGeometry=true&outSR=4326&f=json"
+)
+wildfire_cache = {"data": None, "timestamp": 0, "error": None}
+WILDFIRE_POLL_INTERVAL = 900  # 15 minutes
 
 # --- ODOT DMS ---
 ODOT_DMS_INVENTORY_URL = "https://api.odot.state.or.us/tripcheck/Dms/Inventory"
@@ -226,6 +237,32 @@ def get_odot_cctv():
     else:
         return jsonify({"error": "No ODOT CCTV data cached yet."}), 503
 
+def poll_wildfires():
+    while True:
+        try:
+            print("[Wildfires] Fetching active fire data")
+            resp = requests.get(WILDFIRE_URL, timeout=15)
+            resp.raise_for_status()
+            wildfire_cache["data"] = resp.json()
+            wildfire_cache["timestamp"] = time.time()
+            wildfire_cache["error"] = None
+            print(f"[Wildfires] Cache updated at {time.ctime(wildfire_cache['timestamp'])}")
+        except Exception as e:
+            wildfire_cache["error"] = str(e)
+            print(f"[Wildfires] Error updating cache: {e}")
+        time.sleep(WILDFIRE_POLL_INTERVAL)
+
+threading.Thread(target=poll_wildfires, daemon=True).start()
+
+@app.route("/wildfires")
+def get_wildfires():
+    if wildfire_cache["data"]:
+        return jsonify(wildfire_cache["data"])
+    elif wildfire_cache["error"]:
+        return jsonify({"error": wildfire_cache["error"]}), 503
+    else:
+        return jsonify({"error": "No wildfire data cached yet."}), 503
+
 def poll_dms_inventory():
     while True:
         try:
@@ -284,6 +321,23 @@ def get_odot_dms_status():
         return jsonify({"error": dms_status_cache["error"]}), 503
     else:
         return jsonify({"error": "No ODOT DMS status cached yet."}), 503
+
+ROBOTS_TXT = """User-agent: *
+Allow: /
+Disallow: /outages
+Disallow: /dec-outages
+Disallow: /clpud-outages
+Disallow: /cce-outages
+Disallow: /odot-incidents
+Disallow: /odot-cctv
+Disallow: /odot-dms-inventory
+Disallow: /odot-dms-status
+Disallow: /wildfires
+"""
+
+@app.route("/robots.txt")
+def serve_robots():
+    return Response(ROBOTS_TXT, mimetype="text/plain")
 
 @app.route("/")
 def serve_index():
